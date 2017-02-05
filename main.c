@@ -17,12 +17,14 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "export.h"
 #include "read.h"
+#include "version.h"
 
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 static void usage(const char *progname) {
+  fprintf(stderr, "dvbindex v" DVBINDEX_VERSION_STRING "\n");
   fprintf(stderr, "Usage : %s <dbfile> [file|dir]...\n", progname);
 }
 

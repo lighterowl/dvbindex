@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
   read.h
   dvbstring.c
   dvbstring.h
+  version.h
 )
 
 target_link_libraries(${PROJECT_NAME}
