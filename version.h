@@ -20,7 +20,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define DVBINDEX_VERSION_MAJOR 0
 #define DVBINDEX_VERSION_MINOR 0
-#define DVBINDEX_VERSION_PATCH 1
+#define DVBINDEX_VERSION_PATCH 2
 
 #define DVBINDEX_VERSION                                                       \
   (DVBINDEX_VERSION_MAJOR << 16 | DVBINDEX_VERSION_MINOR << 8 |                \
