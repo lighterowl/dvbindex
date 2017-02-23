@@ -462,6 +462,8 @@ void db_export_av_streams(db_export *exp, sqlite3_int64 file_rowid,
     case AVMEDIA_TYPE_AUDIO:
       export_audio_stream(exp->aud_stream_insert, file_rowid, s);
       break;
+    default:
+      break;
     }
   }
   end_transaction(exp->db);

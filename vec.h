@@ -34,33 +34,33 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
   } while(0)
 
 #define VEC_DEFINE_PUSH(Type) \
-static void vec_##Type##_push(vec_##Type *v, Type e) { \
+static inline void vec_##Type##_push(vec_##Type *v, Type e) { \
   VEC_RESIZE_IF_NEEDED(v); \
   v->data[v->size++] = e; \
 }
 
 #define VEC_DEFINE_INIT(Type) \
-static void vec_##Type##_init(vec_##Type *v) { \
+static inline void vec_##Type##_init(vec_##Type *v) { \
   v->data = malloc(VEC_INITIAL_CAP * sizeof(v->data[0])); \
   v->size = 0; \
   v->cap = VEC_INITIAL_CAP; \
 }
 
 #define VEC_DEFINE_DESTROY(Type) \
-static void vec_##Type##_destroy(vec_##Type *v) { \
+static inline void vec_##Type##_destroy(vec_##Type *v) { \
   free(v->data); \
   v->data = 0; \
   v->size = v->cap = 0; \
 }
 
 #define VEC_DEFINE_WRITE(Type) \
-static Type* vec_##Type##_write(vec_##Type *v) { \
+static inline Type* vec_##Type##_write(vec_##Type *v) { \
   VEC_RESIZE_IF_NEEDED(v); \
   return &v->data[v->size++]; \
 }
 
 #define VEC_DEFINE_BACK(Type) \
-static Type* vec_##Type##_back(vec_##Type *v) { \
+static inline Type* vec_##Type##_back(vec_##Type *v) { \
   return v->size ? (v->data + (v->size - 1)) : 0; \
 }
 

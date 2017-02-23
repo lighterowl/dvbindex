@@ -24,7 +24,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(*x))
 
-static const char *file_name_from_path(const char *path) {
+static inline const char *file_name_from_path(const char *path) {
   char *namestart = strrchr(path, '/');
   return namestart ? namestart + 1 : path;
 }
