@@ -28,22 +28,25 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define VEC_RESIZE_IF_NEEDED(v) do {\
     if (v->size == v->cap) { \
       v->cap *= 2; \
-      v->data = \
-          realloc(v->data, v->cap * sizeof(v->data[0])); \
+      v->data = realloc(v->data, v->cap * sizeof(v->data[0])); \
+      if (v->data == 0) return 0; \
     } \
   } while(0)
 
 #define VEC_DEFINE_PUSH(Type) \
-static inline void vec_##Type##_push(vec_##Type *v, Type e) { \
+static inline int vec_##Type##_push(vec_##Type *v, Type e) { \
   VEC_RESIZE_IF_NEEDED(v); \
   v->data[v->size++] = e; \
+  return 1; \
 }
 
 #define VEC_DEFINE_INIT(Type) \
-static inline void vec_##Type##_init(vec_##Type *v) { \
+static inline int vec_##Type##_init(vec_##Type *v) { \
   v->data = malloc(VEC_INITIAL_CAP * sizeof(v->data[0])); \
+  if (v->data == 0) return 0; \
   v->size = 0; \
   v->cap = VEC_INITIAL_CAP; \
+  return 1; \
 }
 
 #define VEC_DEFINE_DESTROY(Type) \
