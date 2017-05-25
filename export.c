@@ -39,7 +39,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define DVBINDEX_SQLITE_APPLICATION_ID 0x12F834B
 
 /* increment this whenever the schema changes */
-#define DVBINDEX_USER_VERSION 1
+#define DVBINDEX_USER_VERSION 2
 
 typedef struct column_def_ {
   const char *name;
@@ -179,6 +179,21 @@ static const column_def files_coldefs[] = {
 STATIC_ASSERT(ARRAY_SIZE(files_coldefs) == FILE__LAST - 1,
               files_invalid_columns);
 
+typedef enum lang_spec_col_id_ {
+  LANG_SPEC_ELEM_STREAM_ROWID = 1,
+  LANG_SPEC_LANGUAGE,
+  LANG_SPEC_AUDIO_TYPE,
+  LANG_SPEC__LAST
+} lang_spec_col_id;
+
+static const column_def lang_specs_coldefs[] = {
+    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"language", "NOT NULL", SQLITE_TEXT},
+    {"audio_type", "NOT NULL", SQLITE_INTEGER}};
+
+STATIC_ASSERT(ARRAY_SIZE(lang_specs_coldefs) == LANG_SPEC__LAST - 1,
+              lang_specs_invalid_columns);
+
 typedef struct table_def_ {
   const char *name;
   const column_def *columns;
@@ -193,9 +208,11 @@ typedef struct table_def_ {
 /* clang-format on */
 
 static const table_def tables[] = {
-    DEFINE_TABLE(aud_streams), DEFINE_TABLE(vid_streams),  DEFINE_TABLE(pats),
-    DEFINE_TABLE(pmts),        DEFINE_TABLE(elem_streams), DEFINE_TABLE(sdts),
-    DEFINE_TABLE(services),    DEFINE_TABLE(files)};
+    DEFINE_TABLE(aud_streams),  DEFINE_TABLE(vid_streams),
+    DEFINE_TABLE(pats),         DEFINE_TABLE(pmts),
+    DEFINE_TABLE(elem_streams), DEFINE_TABLE(sdts),
+    DEFINE_TABLE(services),     DEFINE_TABLE(files),
+    DEFINE_TABLE(lang_specs)};
 
 static void start_transaction(sqlite3 *db) {
   int rc = sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
@@ -369,9 +386,11 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
   }
 
   sqlite3_stmt **insert_statements[ARRAY_SIZE(tables)] = {
-      &exp->aud_stream_insert, &exp->vid_stream_insert,  &exp->pat_insert,
-      &exp->pmt_insert,        &exp->elem_stream_insert, &exp->sdt_insert,
-      &exp->service_insert,    &exp->file_insert};
+      &exp->aud_stream_insert,  &exp->vid_stream_insert,
+      &exp->pat_insert,         &exp->pmt_insert,
+      &exp->elem_stream_insert, &exp->sdt_insert,
+      &exp->service_insert,     &exp->file_insert,
+      &exp->lang_spec_insert};
 
   for (size_t i = 0; i < ARRAY_SIZE(tables); ++i) {
     rv = create_table(exp->db, &tables[i], error);
@@ -393,6 +412,7 @@ beach:
 }
 
 void db_export_close(db_export *exp) {
+  sqlite3_finalize(exp->lang_spec_insert);
   sqlite3_finalize(exp->file_select);
   sqlite3_finalize(exp->file_insert);
   sqlite3_finalize(exp->service_insert);

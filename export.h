@@ -37,6 +37,7 @@ typedef struct db_export_ {
   sqlite3_stmt *service_insert;
   sqlite3_stmt *file_insert;
   sqlite3_stmt *file_select;
+  sqlite3_stmt *lang_spec_insert;
 } db_export;
 
 int db_export_init(db_export *exp, const char *filename, char **error);
