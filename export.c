@@ -34,6 +34,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <dvbpsi/dr_0a.h>
 #include <dvbpsi/dr_48.h>
+#include <dvbpsi/dr_56.h>
 
 #include "dvbstring.h"
 
@@ -526,12 +527,38 @@ static void export_iso639_descriptor(sqlite3_stmt *stmt,
   }
 }
 
+static void export_teletext_descriptor(sqlite3_stmt *stmt,
+                                       dvbpsi_descriptor_t *dr,
+                                       sqlite3_int64 es_rowid) {
+  dvbpsi_teletext_dr_t *teletext = dvbpsi_DecodeTeletextDr(dr);
+  for (uint8_t i = 0; i < teletext->i_pages_number; ++i) {
+    dvbpsi_teletextpage_t *page = teletext->p_pages + i;
+    sqlite3_reset(stmt);
+    sqlite3_bind_int64(stmt, TTX_PAGE_ELEM_STREAM_ROWID, es_rowid);
+    const char *code = (const char *)page->i_iso6392_language_code;
+    sqlite3_bind_text(stmt, TTX_PAGE_LANGUAGE, code,
+                      sizeof(page->i_iso6392_language_code), SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, TTX_PAGE_TELETEXT_TYPE, page->i_teletext_type);
+    sqlite3_bind_int(stmt, TTX_PAGE_MAGAZINE_NUMBER,
+                     page->i_teletext_magazine_number);
+    sqlite3_bind_int(stmt, TTX_PAGE_PAGE_NUMBER, page->i_teletext_page_number);
+    sqlite3_step(stmt);
+  }
+}
+
 static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
                                       dvbpsi_descriptor_t *dr) {
   while (dr) {
     switch (dr->i_tag) {
     case 0x0a:
       export_iso639_descriptor(exp->lang_spec_insert, dr, es_rowid);
+      break;
+
+    /* descriptors 46h and 56h have exactly the same structure, as documented
+     * in EN 300 468 V1.15.1. */
+    case 0x46:
+    case 0x56:
+      export_teletext_descriptor(exp->ttx_page_insert, dr, es_rowid);
       break;
     }
 
