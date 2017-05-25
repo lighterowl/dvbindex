@@ -41,7 +41,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define DVBINDEX_SQLITE_APPLICATION_ID 0x12F834B
 
 /* increment this whenever the schema changes */
-#define DVBINDEX_USER_VERSION 3
+#define DVBINDEX_USER_VERSION 4
 
 typedef struct column_def_ {
   const char *name;
@@ -215,6 +215,26 @@ static const column_def ttx_pages_coldefs[] = {
 STATIC_ASSERT(ARRAY_SIZE(ttx_pages_coldefs) == TTX_PAGE__LAST - 1,
               ttx_pages_invalid_columns);
 
+typedef enum subtitle_content_col_id_ {
+  SUBTITLE_CONTENT_ELEM_STREAM_ROWID = 1,
+  SUBTITLE_CONTENT_LANGUAGE,
+  SUBTITLE_CONTENT_SUBTITLE_TYPE,
+  SUBTITLE_CONTENT_COMPOSITION_PAGE_ID,
+  SUBTITLE_CONTENT_ANCILLARY_PAGE_ID,
+  SUBTITLE_CONTENT__LAST
+} subtitle_content_col_id;
+
+static const column_def subtitle_contents_coldefs[] = {
+    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"language", "NOT NULL", SQLITE_TEXT},
+    {"subtitling_type", "NOT NULL", SQLITE_INTEGER},
+    {"composition_page_id", "NOT NULL", SQLITE_INTEGER},
+    {"ancillary_page_id", "NOT NULL", SQLITE_INTEGER}};
+
+STATIC_ASSERT(ARRAY_SIZE(subtitle_contents_coldefs) ==
+                  SUBTITLE_CONTENT__LAST - 1,
+              subtitle_contents_invalid_columns);
+
 typedef struct table_def_ {
   const char *name;
   const column_def *columns;
@@ -228,12 +248,17 @@ typedef struct table_def_ {
 
 /* clang-format on */
 
-static const table_def tables[] = {
-    DEFINE_TABLE(aud_streams),  DEFINE_TABLE(vid_streams),
-    DEFINE_TABLE(pats),         DEFINE_TABLE(pmts),
-    DEFINE_TABLE(elem_streams), DEFINE_TABLE(sdts),
-    DEFINE_TABLE(services),     DEFINE_TABLE(files),
-    DEFINE_TABLE(lang_specs),   DEFINE_TABLE(ttx_pages)};
+static const table_def tables[] = {DEFINE_TABLE(aud_streams),
+                                   DEFINE_TABLE(vid_streams),
+                                   DEFINE_TABLE(pats),
+                                   DEFINE_TABLE(pmts),
+                                   DEFINE_TABLE(elem_streams),
+                                   DEFINE_TABLE(sdts),
+                                   DEFINE_TABLE(services),
+                                   DEFINE_TABLE(files),
+                                   DEFINE_TABLE(lang_specs),
+                                   DEFINE_TABLE(ttx_pages),
+                                   DEFINE_TABLE(subtitle_contents)};
 
 static void start_transaction(sqlite3 *db) {
   int rc = sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
@@ -407,10 +432,17 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
   }
 
   sqlite3_stmt **insert_statements[ARRAY_SIZE(tables)] = {
-      &exp->aud_stream_insert, &exp->vid_stream_insert,  &exp->pat_insert,
-      &exp->pmt_insert,        &exp->elem_stream_insert, &exp->sdt_insert,
-      &exp->service_insert,    &exp->file_insert,        &exp->lang_spec_insert,
-      &exp->ttx_page_insert};
+      &exp->aud_stream_insert,
+      &exp->vid_stream_insert,
+      &exp->pat_insert,
+      &exp->pmt_insert,
+      &exp->elem_stream_insert,
+      &exp->sdt_insert,
+      &exp->service_insert,
+      &exp->file_insert,
+      &exp->lang_spec_insert,
+      &exp->ttx_page_insert,
+      &exp->subtitle_content_insert};
 
   for (size_t i = 0; i < ARRAY_SIZE(tables); ++i) {
     rv = create_table(exp->db, &tables[i], error);
@@ -432,6 +464,7 @@ beach:
 }
 
 void db_export_close(db_export *exp) {
+  sqlite3_finalize(exp->subtitle_content_insert);
   sqlite3_finalize(exp->ttx_page_insert);
   sqlite3_finalize(exp->lang_spec_insert);
   sqlite3_finalize(exp->file_select);
