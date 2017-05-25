@@ -56,6 +56,12 @@ Any following invocations of the program don't cause it to rebuild the database
 from scratch : it skips all files that have already been indexed based on their 
 name and size.
 
+# Testing
+
+Testing consists of running `test/dvbindex-test.sh` and passing the path to the
+executable as one of its arguments. The stream repository that's used to create
+the reference database is available upon request.
+
 # Example queries
 
 I'm not a SQL wizard, so I'm sure much more complicated (and useful) queries 
