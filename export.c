@@ -195,6 +195,25 @@ static const column_def lang_specs_coldefs[] = {
 STATIC_ASSERT(ARRAY_SIZE(lang_specs_coldefs) == LANG_SPEC__LAST - 1,
               lang_specs_invalid_columns);
 
+typedef enum ttx_stream_col_id_ {
+  TTX_STREAM_ELEM_STREAM_ROWID = 1,
+  TTX_STREAM_LANGUAGE,
+  TTX_STREAM_TELETEXT_TYPE,
+  TTX_STREAM_MAGAZINE_NUMBER,
+  TTX_STREAM_PAGE_NUMBER,
+  TTX_STREAM__LAST
+} ttx_stream_col_id;
+
+static const column_def ttx_streams_coldefs[] = {
+    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"language", "NOT NULL", SQLITE_TEXT},
+    {"teletext_type", "NOT NULL", SQLITE_INTEGER},
+    {"magazine_number", "NOT NULL", SQLITE_INTEGER},
+    {"page_number", "NOT NULL", SQLITE_INTEGER}};
+
+STATIC_ASSERT(ARRAY_SIZE(ttx_streams_coldefs) == TTX_STREAM__LAST - 1,
+              ttx_streams_invalid_columns);
+
 typedef struct table_def_ {
   const char *name;
   const column_def *columns;
@@ -213,7 +232,7 @@ static const table_def tables[] = {
     DEFINE_TABLE(pats),         DEFINE_TABLE(pmts),
     DEFINE_TABLE(elem_streams), DEFINE_TABLE(sdts),
     DEFINE_TABLE(services),     DEFINE_TABLE(files),
-    DEFINE_TABLE(lang_specs)};
+    DEFINE_TABLE(lang_specs),   DEFINE_TABLE(ttx_streams)};
 
 static void start_transaction(sqlite3 *db) {
   int rc = sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
@@ -387,11 +406,10 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
   }
 
   sqlite3_stmt **insert_statements[ARRAY_SIZE(tables)] = {
-      &exp->aud_stream_insert,  &exp->vid_stream_insert,
-      &exp->pat_insert,         &exp->pmt_insert,
-      &exp->elem_stream_insert, &exp->sdt_insert,
-      &exp->service_insert,     &exp->file_insert,
-      &exp->lang_spec_insert};
+      &exp->aud_stream_insert, &exp->vid_stream_insert,  &exp->pat_insert,
+      &exp->pmt_insert,        &exp->elem_stream_insert, &exp->sdt_insert,
+      &exp->service_insert,    &exp->file_insert,        &exp->lang_spec_insert,
+      &exp->ttx_stream_insert};
 
   for (size_t i = 0; i < ARRAY_SIZE(tables); ++i) {
     rv = create_table(exp->db, &tables[i], error);
@@ -413,6 +431,7 @@ beach:
 }
 
 void db_export_close(db_export *exp) {
+  sqlite3_finalize(exp->ttx_stream_insert);
   sqlite3_finalize(exp->lang_spec_insert);
   sqlite3_finalize(exp->file_select);
   sqlite3_finalize(exp->file_insert);
