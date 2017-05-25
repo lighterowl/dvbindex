@@ -35,6 +35,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <dvbpsi/dr_0a.h>
 #include <dvbpsi/dr_48.h>
 #include <dvbpsi/dr_56.h>
+#include <dvbpsi/dr_59.h>
 
 #include "dvbstring.h"
 
@@ -579,6 +580,28 @@ static void export_teletext_descriptor(sqlite3_stmt *stmt,
   }
 }
 
+static void export_subtitle_descriptor(sqlite3_stmt *stmt,
+                                       dvbpsi_descriptor_t *dr,
+                                       sqlite3_int64 es_rowid) {
+  dvbpsi_subtitling_dr_t *subtitling = dvbpsi_DecodeSubtitlingDr(dr);
+  for (uint8_t i = 0; i < subtitling->i_subtitles_number; ++i) {
+    dvbpsi_subtitle_t *subtitle = subtitling->p_subtitle + i;
+    sqlite3_reset(stmt);
+    sqlite3_bind_int64(stmt, SUBTITLE_CONTENT_ELEM_STREAM_ROWID, es_rowid);
+    const char *code = (const char *)subtitle->i_iso6392_language_code;
+    sqlite3_bind_text(stmt, SUBTITLE_CONTENT_LANGUAGE, code,
+                      sizeof(subtitle->i_iso6392_language_code),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_SUBTITLE_TYPE,
+                     subtitle->i_subtitling_type);
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_COMPOSITION_PAGE_ID,
+                     subtitle->i_composition_page_id);
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_ANCILLARY_PAGE_ID,
+                     subtitle->i_ancillary_page_id);
+    sqlite3_step(stmt);
+  }
+}
+
 static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
                                       dvbpsi_descriptor_t *dr) {
   while (dr) {
@@ -592,6 +615,10 @@ static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
     case 0x46:
     case 0x56:
       export_teletext_descriptor(exp->ttx_page_insert, dr, es_rowid);
+      break;
+
+    case 0x59:
+      export_subtitle_descriptor(exp->subtitle_content_insert, dr, es_rowid);
       break;
     }
 
