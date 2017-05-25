@@ -40,7 +40,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define DVBINDEX_SQLITE_APPLICATION_ID 0x12F834B
 
 /* increment this whenever the schema changes */
-#define DVBINDEX_USER_VERSION 2
+#define DVBINDEX_USER_VERSION 3
 
 typedef struct column_def_ {
   const char *name;
