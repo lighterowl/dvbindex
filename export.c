@@ -32,6 +32,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <dvbpsi/pmt.h>
 #include <dvbpsi/sdt.h>
 
+#include <dvbpsi/dr_0a.h>
 #include <dvbpsi/dr_48.h>
 
 #include "dvbstring.h"
@@ -489,6 +490,36 @@ void db_export_av_streams(db_export *exp, sqlite3_int64 file_rowid,
   end_transaction(exp->db);
 }
 
+static void export_iso639_descriptor(sqlite3_stmt *stmt,
+                                     dvbpsi_descriptor_t *dr,
+                                     sqlite3_int64 es_rowid) {
+  dvbpsi_iso639_dr_t *iso639_dr = dvbpsi_DecodeISO639Dr(dr);
+  for (uint8_t i = 0; i < iso639_dr->i_code_count; ++i) {
+    sqlite3_reset(stmt);
+    sqlite3_bind_int64(stmt, LANG_SPEC_ELEM_STREAM_ROWID, es_rowid);
+    const char *code = (const char *)iso639_dr->code[i].iso_639_code;
+    sqlite3_bind_text(stmt, LANG_SPEC_LANGUAGE, code,
+                      sizeof(iso639_dr->code[i].iso_639_code),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, LANG_SPEC_AUDIO_TYPE,
+                     iso639_dr->code[i].i_audio_type);
+    sqlite3_step(stmt);
+  }
+}
+
+static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
+                                      dvbpsi_descriptor_t *dr) {
+  while (dr) {
+    switch (dr->i_tag) {
+    case 0x0a:
+      export_iso639_descriptor(exp->lang_spec_insert, dr, es_rowid);
+      break;
+    }
+
+    dr = dr->p_next;
+  }
+}
+
 static void export_pmt_es(db_export *exp, sqlite3_int64 pmt_rowid,
                           const dvbpsi_pmt_es_t *es) {
   sqlite3_reset(exp->elem_stream_insert);
@@ -496,6 +527,8 @@ static void export_pmt_es(db_export *exp, sqlite3_int64 pmt_rowid,
   sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_TYPE, es->i_type);
   sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_PID, es->i_pid);
   sqlite3_step(exp->elem_stream_insert);
+  sqlite3_int64 es_rowid = sqlite3_last_insert_rowid(exp->db);
+  export_pmt_es_descriptors(exp, es_rowid, es->p_first_descriptor);
 }
 
 sqlite3_int64 db_export_pat(db_export *exp, sqlite3_int64 file_rowid,
