@@ -23,12 +23,22 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "util.h"
 
-static const char *iso8859_table[] = {"ISO88591", "ISO88592", "ISO88593",
-                                      "ISO88594", "ISO88595", "ISO88596",
-                                      "ISO88597", "ISO88598", "ISO88599",
-                                      "ISO885910", "ISO885911", 0 /* reserved */
+static const char *iso8859_table[] = {"ISO88591",
+                                      "ISO88592",
+                                      "ISO88593",
+                                      "ISO88594",
+                                      "ISO88595",
+                                      "ISO88596",
+                                      "ISO88597",
+                                      "ISO88598",
+                                      "ISO88599",
+                                      "ISO885910",
+                                      "ISO885911",
+                                      0 /* reserved */
                                       ,
-                                      "ISO885913", "ISO885914", "ISO885915"};
+                                      "ISO885913",
+                                      "ISO885914",
+                                      "ISO885915"};
 
 STATIC_ASSERT(ARRAY_SIZE(iso8859_table) == 15, iso8859_table_invalid_size);
 
@@ -137,7 +147,7 @@ static void enlarge_iconv_buf(iconv_conv_state *state) {
 #undef ICONV_BUF_SIZE
 
 static void fix_iso6937_euro_sign(iconv_conv_state *state) {
-  const static unsigned char utf8_euro[] = { 0xe2, 0x82, 0xac };
+  const static unsigned char utf8_euro[] = {0xe2, 0x82, 0xac};
   const static size_t utf8_euro_len = sizeof(utf8_euro);
   while (state->outleft < utf8_euro_len) {
     enlarge_iconv_buf(state);
