@@ -43,6 +43,7 @@ static const char *iso8859_table[] = {"ISO88591",
 STATIC_ASSERT(ARRAY_SIZE(iso8859_table) == 15, iso8859_table_invalid_size);
 
 #define ISO_6937 "ISO6937"
+#define KSX_1001 "KSX1001-2004"
 
 static const char *get_extended_8859_encoding(const uint8_t *str, size_t *len,
                                               const uint8_t **start) {
@@ -91,9 +92,7 @@ static const char *get_encoding(const uint8_t *str, size_t *len,
      */
     return "UCS2";
   case 0x12:
-    /* TODO : implement UTF-8 mapping for KSX1001-2004. there is a mapping table
-     * available at the Unicode FTP. */
-    return 0;
+    return "KSX1001-2004";
   case 0x13:
     return "GB2312";
   case 0x14:
@@ -108,7 +107,90 @@ static const char *get_encoding(const uint8_t *str, size_t *len,
   return 0;
 }
 
+#include "ksx1001.c"
+
+static int ksx1001_code_point_cmp(const void *a, const void *b) {
+  const uint16_t(*pA)[2] = a;
+  const uint16_t(*pB)[2] = b;
+  return (*pA)[0] - (*pB)[0];
+}
+
+static uint16_t ksx1001_get_code_point(uint16_t ksx_char) {
+  uint16_t search[2] = {ksx_char, 0};
+  uint16_t(*found)[2] =
+      bsearch(&search, ksx1001_to_code_point, ARRAY_SIZE(ksx1001_to_code_point),
+              sizeof(*ksx1001_to_code_point), ksx1001_code_point_cmp);
+  return found ? (*found)[1] : 0;
+}
+
+static unsigned int code_point_utf8_length(uint16_t cp) {
+  if (cp <= 0x7F) {
+    return 1;
+  }
+  if (cp <= 0x07FF) {
+    return 2;
+  }
+  return 3;
+}
+
+static void code_point_to_utf8(char *utf8, uint16_t cp) {
+  unsigned int bytes = code_point_utf8_length(cp);
+  switch (bytes) {
+  case 1:
+    *utf8 = (char)cp;
+    break;
+
+  case 2:
+    *utf8 = (char)((cp >> 6) | 0xC0);
+    *(utf8 + 1) = (char)((cp & 0x3F) | 0x80);
+    break;
+
+  case 3:
+    *utf8 = (char)((cp >> 12) | 0xE0);
+    *(utf8 + 1) = (char)(((cp >> 6) & 0x3F) | 0x80);
+    *(utf8 + 2) = (char)((cp & 0x3F) | 0x80);
+  }
+}
+
+static size_t ksx1001_to_utf8_iconv(iconv_t cd, char **inbuf,
+                                    size_t *inbytesleft, char **outbuf,
+                                    size_t *outbytesleft) {
+  if (inbuf == 0 || inbytesleft == 0 || outbuf == 0 || outbytesleft == 0) {
+    return 0;
+  }
+
+  while (*inbytesleft > 2) {
+    uint16_t inchar;
+    memcpy(&inchar, *inbuf, sizeof(inchar));
+    uint16_t cp = ksx1001_get_code_point(inchar);
+    if (cp == 0) {
+      errno = EILSEQ;
+      return (size_t)-1;
+    }
+    unsigned int needed_bytes = code_point_utf8_length(cp);
+    if (needed_bytes > *outbytesleft) {
+      errno = E2BIG;
+      return (size_t)-1;
+    }
+
+    code_point_to_utf8(*outbuf, cp);
+
+    *outbytesleft -= needed_bytes;
+    *outbuf += needed_bytes;
+    *inbytesleft -= 2;
+    *inbuf += 2;
+  }
+  if (*inbytesleft == 1) {
+    errno = EINVAL;
+    return (size_t)-1;
+  }
+  return 0;
+}
+
+typedef size_t (*iconv_fn_ptr_t)(iconv_t, char **, size_t *, char **, size_t *);
+
 typedef struct iconv_conv_state_ {
+  iconv_fn_ptr_t iconv_fn;
   iconv_t cd;
   char *inpos;
   size_t inleft;
@@ -123,9 +205,15 @@ typedef struct iconv_conv_state_ {
 
 static int iconv_conv_state_init(iconv_conv_state *state, const uint8_t *start,
                                  size_t len, const char *encoding) {
-  state->cd = iconv_open("UTF-8", encoding);
-  if (state->cd == (iconv_t)-1) {
-    return errno;
+  if (strcmp(encoding, KSX_1001) != 0) {
+    state->iconv_fn = iconv;
+    state->cd = iconv_open("UTF-8", encoding);
+    if (state->cd == (iconv_t)-1) {
+      return errno;
+    }
+  } else {
+    state->iconv_fn = ksx1001_to_utf8_iconv;
+    state->cd = (iconv_t)-1;
   }
   state->inpos = (char *)start; /* needed due to iconv's interface */
   state->inleft = len;
@@ -178,8 +266,8 @@ static int handle_iconv_error(int iconv_errno, iconv_conv_state *state) {
 
 static void do_conv(iconv_conv_state *state) {
   while (state->inleft != 0) {
-    size_t iconv_rv = iconv(state->cd, &state->inpos, &state->inleft,
-                            &state->outpos, &state->outleft);
+    size_t iconv_rv = state->iconv_fn(state->cd, &state->inpos, &state->inleft,
+                                      &state->outpos, &state->outleft);
     if (iconv_rv == (size_t)-1 && handle_iconv_error(errno, state) != 0) {
       free(state->out);
       state->out = 0;
@@ -204,7 +292,9 @@ char *dvbstring_to_utf8(const uint8_t *str, size_t len, size_t *outlen) {
   }
 
   do_conv(&state);
-  iconv_close(state.cd);
+  if (state.cd != (iconv_t)-1) {
+    iconv_close(state.cd);
+  }
   *outlen = state.outpos - state.out;
   return state.out;
 }
