@@ -21,6 +21,8 @@ add_executable(${PROJECT_NAME}
   dvbstring.c
   dvbstring.h
   version.h
+  log.c
+  log.h
 )
 
 target_link_libraries(${PROJECT_NAME}

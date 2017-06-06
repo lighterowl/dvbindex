@@ -19,10 +19,10 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define _XOPEN_SOURCE 500
 
 #include "read.h"
-
 #include "export.h"
-#include "vec.h"
+#include "log.h"
 #include "util.h"
+#include "vec.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -75,8 +75,31 @@ typedef struct psi_monitor_ {
 } psi_monitor;
 VEC_DEFINE(psi_monitor)
 
+static dvbindex_log_severity
+dvbpsi_msg_level_to_dvbindex_log_severity(dvbpsi_msg_level_t level) {
+  switch (level) {
+  case DVBPSI_MSG_ERROR:
+    return DVBIDX_LOG_SEVERITY_CRITICAL;
+  case DVBPSI_MSG_WARN:
+    return DVBIDX_LOG_SEVERITY_WARNING;
+  case DVBPSI_MSG_DEBUG:
+    return DVBIDX_LOG_SEVERITY_DEBUG;
+  case DVBPSI_MSG_NONE:
+    assert(0 && "DVBPSI_MSG_NONE in dvbpsi log callback");
+  }
+  return DVBIDX_LOG_SEVERITY__LAST;
+}
+
+static void dvbindex_log_dvbpsi_cbk(dvbpsi_t *handle,
+                                    const dvbpsi_msg_level_t level,
+                                    const char *msg) {
+  (void)handle; /* TODO : print the handle as well */
+  dvbindex_log(DVBIDX_LOG_CAT_DVBPSI,
+               dvbpsi_msg_level_to_dvbindex_log_severity(level), msg);
+}
+
 static dvbpsi_t *create_dvbpsi_handle(void) {
-  return dvbpsi_new(0, DVBPSI_MSG_NONE);
+  return dvbpsi_new(dvbindex_log_dvbpsi_cbk, DVBPSI_MSG_DEBUG);
 }
 
 static void psi_monitor_simple_detach_init(psi_monitor *mon,
@@ -387,12 +410,35 @@ static void ts_file_read_ctx_destroy(ts_file_read_ctx *ctx) {
 
 static AVInputFormat *mpegts_format;
 
+static dvbindex_log_severity ffmpeg_to_dvbindex_severity(int severity) {
+  if (severity <= AV_LOG_ERROR) {
+    return DVBIDX_LOG_SEVERITY_CRITICAL;
+  }
+  if (severity == AV_LOG_WARNING) {
+    return DVBIDX_LOG_SEVERITY_WARNING;
+  }
+  if (severity == AV_LOG_INFO) {
+    return DVBIDX_LOG_SEVERITY_INFO;
+  }
+  if (severity >= AV_LOG_VERBOSE) {
+    return DVBIDX_LOG_SEVERITY_DEBUG;
+  }
+  assert(0);
+  return DVBIDX_LOG_SEVERITY__LAST;
+}
+
+static void ffmpeg_log_callback(void *p, int severity, const char *fmt,
+                                va_list args) {
+  (void)p;
+  dvbindex_log_severity dvbidx_sever = ffmpeg_to_dvbindex_severity(severity);
+  dvbindex_vlog(DVBIDX_LOG_CAT_FFMPEG, dvbidx_sever, fmt, args);
+}
+
 int ffmpeg_init(void) {
   /* register codecs and formats and other lavf/lavc components*/
   av_register_all();
 
-  /* we don't want to receive any messages from ffmpeg yet */
-  av_log_set_callback(0);
+  av_log_set_callback(ffmpeg_log_callback);
 
   /* this saves an av_find_input_format call when doing open_input */
   mpegts_format = av_find_input_format("mpegts");
