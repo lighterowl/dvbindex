@@ -1,7 +1,11 @@
 #include "log.h"
 #include <stdio.h>
 
-static dvbindex_log_severity max_severity[DVBIDX_LOG_CAT__LAST];
+static dvbindex_log_severity max_severity[DVBIDX_LOG_CAT__LAST] = {
+    /* dvbindex */ DVBIDX_LOG_SEVERITY_INFO,
+    /* ffmpeg */ DVBIDX_LOG_SEVERITY_CRITICAL,
+    /* dvbpsi */ DVBIDX_LOG_SEVERITY_INFO,
+    /* sqlite */ DVBIDX_LOG_SEVERITY_WARNING};
 static const char *const cat_names[DVBIDX_LOG_CAT__LAST] = {
     "dvbindex", "ffmpeg", "dvbpsi", "sqlite"};
 static const char *const sever_names[DVBIDX_LOG_SEVERITY__LAST] = {

@@ -557,8 +557,9 @@ static int read_ts_file(db_export *db, const char *filename) {
   }
 
   if (db_has_file(db, filename, ctx.file_size)) {
-    fprintf(stderr, "%s [%lld] already in database, skipping\n",
-            file_name_from_path(filename), (long long int)ctx.file_size);
+    dvbindex_log(DVBIDX_LOG_CAT_DVBINDEX, DVBIDX_LOG_SEVERITY_INFO,
+                 "%s [%lld] already in database, skipping\n",
+                 file_name_from_path(filename), (long long int)ctx.file_size);
     return 0;
   }
 
@@ -618,7 +619,8 @@ static int read_ts_file(db_export *db, const char *filename) {
   db_export_av_streams(db, ctx.dvbpsi_parse.file_rowid, fmt_ctx->nb_streams,
                        fmt_ctx->streams);
 
-  fprintf(stderr, "Saved %s\n", file_name_from_path(filename));
+  dvbindex_log(DVBIDX_LOG_CAT_DVBINDEX, DVBIDX_LOG_SEVERITY_INFO, "Saved %s\n",
+               file_name_from_path(filename));
 
   ret = 0;
 
@@ -651,11 +653,13 @@ static int nftw_cbk(const char *fpath, const struct stat *sb, int typeflag,
       return ENOMEM;
 
     case AVERROR_EOF:
-      fprintf(stderr, "%s does not look like a MPEG-TS\n", name);
+      dvbindex_log(DVBIDX_LOG_CAT_DVBINDEX, DVBIDX_LOG_SEVERITY_INFO,
+                   "%s does not look like a MPEG-TS\n", name);
       break;
 
     default:
-      fprintf(stderr, "Error while reading %s : %s\n", name, av_err2str(rv));
+      dvbindex_log(DVBIDX_LOG_CAT_DVBINDEX, DVBIDX_LOG_SEVERITY_CRITICAL,
+                   "Error while reading %s : %s\n", name, av_err2str(rv));
     }
   }
   return 0;

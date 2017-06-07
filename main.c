@@ -16,6 +16,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "export.h"
+#include "log.h"
 #include "read.h"
 #include "version.h"
 
@@ -35,11 +36,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (ffmpeg_init()) {
-    fprintf(stderr,
-            "ffmpeg initialization failed. This is probably caused by your\n"
-            "ffmpeg version not having support for MPEG-TS compiled in.\n"
-            "If ffprobe works on your TS files, please submit a bug report\n"
-            "for dvbindex.\n");
+    dvbindex_log(
+        DVBIDX_LOG_CAT_DVBINDEX, DVBIDX_LOG_SEVERITY_CRITICAL,
+        "ffmpeg initialization failed. This is probably caused by your\n"
+        "ffmpeg version not having support for MPEG-TS compiled in.\n"
+        "If ffprobe works on your TS files, please submit a bug report\n"
+        "for dvbindex.\n");
     return EXIT_FAILURE;
   }
 
@@ -48,8 +50,9 @@ int main(int argc, char *argv[]) {
   char *db_init_error;
   int db_init_rv = db_export_init(&db, argv[1], &db_init_error);
   if (db_init_rv != SQLITE_OK) {
-    fprintf(stderr, "Could not init database %s : %s (%s)\n", argv[1],
-            sqlite3_errstr(db_init_rv), db_init_error);
+    dvbindex_log(DVBIDX_LOG_CAT_SQLITE, DVBIDX_LOG_SEVERITY_CRITICAL,
+                 "Could not init database %s : %s (%s)\n", argv[1],
+                 sqlite3_errstr(db_init_rv), db_init_error);
     rv = EXIT_FAILURE;
     goto beach;
   }
