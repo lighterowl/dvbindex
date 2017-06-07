@@ -411,10 +411,10 @@ static void ts_file_read_ctx_destroy(ts_file_read_ctx *ctx) {
 static AVInputFormat *mpegts_format;
 
 static dvbindex_log_severity ffmpeg_to_dvbindex_severity(int severity) {
-  if (severity <= AV_LOG_ERROR) {
+  if (severity <= AV_LOG_FATAL) {
     return DVBIDX_LOG_SEVERITY_CRITICAL;
   }
-  if (severity == AV_LOG_WARNING) {
+  if (severity <= AV_LOG_WARNING) {
     return DVBIDX_LOG_SEVERITY_WARNING;
   }
   if (severity == AV_LOG_INFO) {
@@ -430,8 +430,8 @@ static dvbindex_log_severity ffmpeg_to_dvbindex_severity(int severity) {
 static void ffmpeg_log_callback(void *p, int severity, const char *fmt,
                                 va_list args) {
   (void)p;
-  dvbindex_log_severity dvbidx_sever = ffmpeg_to_dvbindex_severity(severity);
-  dvbindex_vlog(DVBIDX_LOG_CAT_FFMPEG, dvbidx_sever, fmt, args);
+  dvbindex_vlog(DVBIDX_LOG_CAT_FFMPEG, ffmpeg_to_dvbindex_severity(severity),
+                fmt, args);
 }
 
 int ffmpeg_init(void) {

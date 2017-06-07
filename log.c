@@ -4,11 +4,13 @@
 static dvbindex_log_severity max_severity[DVBIDX_LOG_CAT__LAST];
 static const char *const cat_names[DVBIDX_LOG_CAT__LAST] = {
     "dvbindex", "ffmpeg", "dvbpsi", "sqlite"};
+static const char *const sever_names[DVBIDX_LOG_SEVERITY__LAST] = {
+    "CRI", "WRN", "INF", "DBG"};
 
 void dvbindex_vlog(dvbindex_log_cat cat, dvbindex_log_severity severity,
                    const char *fmt, va_list args) {
   if (severity <= max_severity[cat]) {
-    fprintf(stderr, "[%s] ", cat_names[cat]);
+    fprintf(stderr, "[%s] [%s] ", cat_names[cat], sever_names[severity]);
     vfprintf(stderr, fmt, args);
   }
 }
