@@ -41,6 +41,15 @@ void dvbindex_vlog(dvbindex_log_cat cat, dvbindex_log_severity severity,
   }
 }
 
+void dvbindex_vlog_ctx(dvbindex_log_cat cat, dvbindex_log_severity severity,
+                       void *ctx, const char *fmt, va_list args) {
+  if (severity <= max_severity[cat]) {
+    fprintf(stderr, "[%s] [%s] [%p] ", cat_names[cat], sever_names[severity],
+            ctx);
+    vfprintf(stderr, fmt, args);
+  }
+}
+
 void dvbindex_log(dvbindex_log_cat cat, dvbindex_log_severity severity,
                   const char *fmt, ...) {
   va_list args;

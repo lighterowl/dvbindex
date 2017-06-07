@@ -429,9 +429,8 @@ static dvbindex_log_severity ffmpeg_to_dvbindex_severity(int severity) {
 
 static void ffmpeg_log_callback(void *p, int severity, const char *fmt,
                                 va_list args) {
-  (void)p;
-  dvbindex_vlog(DVBIDX_LOG_CAT_FFMPEG, ffmpeg_to_dvbindex_severity(severity),
-                fmt, args);
+  dvbindex_vlog_ctx(DVBIDX_LOG_CAT_FFMPEG,
+                    ffmpeg_to_dvbindex_severity(severity), p, fmt, args);
 }
 
 int ffmpeg_init(void) {

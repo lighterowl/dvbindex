@@ -38,8 +38,10 @@ typedef enum dvbindex_log_severity_ {
 
 void dvbindex_vlog(dvbindex_log_cat cat, dvbindex_log_severity severity,
                    const char *fmt, va_list args);
+void dvbindex_vlog_ctx(dvbindex_log_cat cat, dvbindex_log_severity severity,
+                       void *ctx, const char *fmt, va_list args);
 void dvbindex_log(dvbindex_log_cat cat, dvbindex_log_severity severity,
                   const char *fmt, ...);
-void dvbindex_log_parse_severity(const char* string);
+void dvbindex_log_parse_severity(const char *string);
 
 #endif
