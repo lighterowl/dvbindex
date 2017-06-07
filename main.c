@@ -15,6 +15,8 @@ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#define _POSIX_C_SOURCE 2
+
 #include "export.h"
 #include "log.h"
 #include "read.h"
@@ -23,14 +25,37 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static void usage(const char *progname) {
   fprintf(stderr, "dvbindex v" DVBINDEX_VERSION_STRING "\n");
-  fprintf(stderr, "Usage : %s <dbfile> [file|dir]...\n", progname);
+  fprintf(stderr, "Usage : %s dbfile [stream ...]\n", progname);
+  /* clang-format off */
+  static const char *usagemsg =
+"Read streams and save their metadata and codec information into dbfile. Each of\n"
+"the streams might be a file or a directory.\n"
+"\n"
+"Additional options :\n"
+"   -v verbosity   Specify the logging verbosity, with 0 being the lowest and 3\n"
+"                  being the highest. This can be a single number, in which case\n"
+"                  all components have the same verbosity, or a comma-delimited\n"
+"                  sequence of component:severity tokens. Valid components are :\n"
+"                  dvbindex, ffmpeg, sqlite, dvbpsi\n";
+  /* clang-format on */
+  fputs(usagemsg, stderr);
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 2) {
+  int opt;
+  while ((opt = getopt(argc, argv, "v:")) != -1) {
+    switch (opt) {
+    case 'v':
+      dvbindex_log_parse_severity(optarg);
+      break;
+    }
+  }
+
+  if ((argc - optind) < 2) {
     usage(argv[0]);
     return EXIT_FAILURE;
   }
@@ -47,17 +72,18 @@ int main(int argc, char *argv[]) {
 
   int rv = EXIT_SUCCESS;
   db_export db;
+  const char *dbfilename = argv[optind];
   char *db_init_error;
-  int db_init_rv = db_export_init(&db, argv[1], &db_init_error);
+  int db_init_rv = db_export_init(&db, dbfilename, &db_init_error);
   if (db_init_rv != SQLITE_OK) {
     dvbindex_log(DVBIDX_LOG_CAT_SQLITE, DVBIDX_LOG_SEVERITY_CRITICAL,
-                 "Could not init database %s : %s (%s)\n", argv[1],
+                 "Could not init database %s : %s (%s)\n", dbfilename,
                  sqlite3_errstr(db_init_rv), db_init_error);
     rv = EXIT_FAILURE;
     goto beach;
   }
 
-  for (int i = 2; i < argc; ++i) {
+  for (int i = optind + 1; i < argc; ++i) {
     if (read_path(&db, argv[i]) != 0) {
       rv = EXIT_FAILURE;
       break;
