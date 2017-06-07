@@ -65,7 +65,12 @@ run_dvbindex() {
   fi
 }
 
-run_dvbindex "$DB_FILE" "$TEST_DIR"
+readonly -a TEST_STREAMS=('hotbird-uhd.ts' 'unitymedia.ts' 'mux3.ts'
+'astra-uhd.ts' 'ISDB-Tb_capture_VLC.ts')
+pushd "$TEST_DIR"
+run_dvbindex "$DB_FILE" "${TEST_STREAMS[@]}"
+popd
+
 result=$(sqldiff "$REF_DB" "$DB_FILE")
 if [[ -z $result ]]; then
   exit 0
