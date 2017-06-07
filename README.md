@@ -103,6 +103,19 @@ JOIN services s ON s.sdt_rowid = sdt.rowid AND s.program_number = pmt.program_nu
 WHERE v.width = 1920 AND v.height = 1080
 ```
 
+Get the list of services which have at least one teletext stream :
+
+```sql
+SELECT s.name, count(*) AS num_teletext_streams
+FROM ttx_pages t
+JOIN elem_streams es on t.elem_stream_rowid = es.rowid
+JOIN pmts pm ON es.pmt_rowid = pm.rowid
+JOIN pats pa ON pm.pat_rowid = pa.rowid
+JOIN sdts sd ON sd.pat_rowid = pa.rowid
+JOIN services s ON pm.program_number = s.program_number AND sd.rowid = s.sdt_rowid
+GROUP BY es.pid, pm.program_number, sd.onid
+```
+
 # Missing features
 
 Lots. Currently, `dvbindex` only reads PAT and PMT, and SDT tables. Support for 
