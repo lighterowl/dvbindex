@@ -92,7 +92,7 @@ static const char *get_encoding(const uint8_t *str, size_t *len,
      */
     return "UCS2";
   case 0x12:
-    return "KSX1001-2004";
+    return KSX_1001;
   case 0x13:
     return "GB2312";
   case 0x14:
