@@ -93,9 +93,9 @@ dvbpsi_msg_level_to_dvbindex_log_severity(dvbpsi_msg_level_t level) {
 static void dvbindex_log_dvbpsi_cbk(dvbpsi_t *handle,
                                     const dvbpsi_msg_level_t level,
                                     const char *msg) {
-  (void)handle; /* TODO : print the handle as well */
   dvbindex_log(DVBIDX_LOG_CAT_DVBPSI,
-               dvbpsi_msg_level_to_dvbindex_log_severity(level), "%s\n", msg);
+               dvbpsi_msg_level_to_dvbindex_log_severity(level), "[%p] %s\n",
+               handle, msg);
 }
 
 static dvbpsi_t *create_dvbpsi_handle(void) {
