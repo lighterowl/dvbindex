@@ -30,7 +30,7 @@ $EOF
 
 while getopts 'b:d:kr:v' arg; do
   case "$arg" in
-    b) readonly DVBINDEX=$OPTARG ;;
+    b) readonly DVBINDEX=$(readlink -f "$OPTARG") ;;
     d) readonly TEST_DIR=$OPTARG ;;
     k) readonly KEEP_DB=1 ;;
     r) readonly REF_DB=$OPTARG ;;
