@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # dvbindex - a program for indexing DVB streams
 # Copyright (C) 2017 Daniel Kamil Kozar
@@ -20,42 +20,74 @@ use strict;
 use warnings;
 
 use Spreadsheet::XLSX;
-use DBI;
+use DBI qw(:sql_types);
 use LWP::UserAgent;
 use Readonly;
 
-die "Usage : $0 dbfile" unless scalar(@ARGV) == 1;
+my $dbh;
 
-my $dbh = DBI->connect( "dbi:SQLite:dbname=$ARGV[0]", "", "" );
-
-sub handle_bouquet_id {
-  my $xlsx = shift;
-  $dbh->do(
-'create table registered_bouquet_ids(range_start, range_end, name, operator)'
-  );
+sub sheet_to_sqlite {
+  my ( $sheet, $table_name, $data_columns ) = @_;
+  my @range_columns = ( 'range_start', 'range_end' );
+  my @columns = ( @range_columns, @{$data_columns} );
+  $dbh->do("DROP TABLE IF EXISTS $table_name");
+  $dbh->do( "CREATE TABLE $table_name (" . join( ',', @columns ) . ')' );
   my $sth =
-    $dbh->prepare('insert into registered_bouquet_ids values (?,?,?,?)');
-  my $sheet = $xlsx->worksheet('Bouquet ID');
+    $dbh->prepare( "INSERT INTO $table_name VALUES ("
+      . join( ',', ( ('?') x scalar(@columns) ) )
+      . ')' );
   my ( $row_min, $row_max ) = $sheet->row_range();
   my ( $col_min, $col_max ) = $sheet->col_range();
   $dbh->begin_work();
+
   for my $row ( 5 .. $row_max ) {
 
-    for my $col ( $col_min .. $col_max ) {
+    for my $col ( $col_min .. 3 ) {
       my $cell = $sheet->get_cell( $row, $col );
       next unless $cell;
-      $sth->bind_param( $col + 1, $cell->unformatted() );
+      my $value = $cell->value();
+      my $type  = SQL_VARCHAR;
+      if ( $col == 0 or $col == 1 ) {
+        $value =~ s/^\s+|\s+$//g;
+        $value = hex($value);
+        $type  = SQL_INTEGER;
+      }
+      $sth->bind_param( $col + 1, $value, $type );
     }
     $sth->execute();
   }
   $dbh->commit();
+  $dbh->do( "CREATE INDEX ${table_name}_range_idx ON ${table_name} ("
+      . join( ',', @range_columns )
+      . ')' );
 }
-sub handle_ca_system_id { }
-sub handle_nid          { }
-sub handle_onid         { }
 
-Readonly::Scalar my $dvbservices_url_base =>
-  'http://www.dvbservices.com/identifiers/export/';
+sub handle_bouquet_id {
+  my $xlsx = shift;
+  sheet_to_sqlite( $xlsx->worksheet('Bouquet ID'),
+    'registered_bouquet_ids', [ 'name', 'operator' ] );
+}
+
+sub handle_ca_system_id {
+  my $xlsx = shift;
+  sheet_to_sqlite( $xlsx->worksheet('CA System ID'),
+    'registered_ca_system_ids', [ 'description', 'specifier' ] );
+}
+
+sub handle_nid {
+  my $xlsx = shift;
+  sheet_to_sqlite( $xlsx->worksheet('Network ID'),
+    'registered_network_ids', [ 'name', 'operator' ] );
+}
+
+sub handle_onid {
+  my $xlsx = shift;
+  sheet_to_sqlite(
+    $xlsx->worksheet('Original Network ID'),
+    'registered_original_network_ids',
+    [ 'name', 'operator' ]
+  );
+}
 
 Readonly::Hash my %ids => (
   'bouquet_id'          => \&handle_bouquet_id,
@@ -71,10 +103,28 @@ sub parse_xlsx {
   $handler->($xlsx);
 }
 
-sub drop_if_exists {
-  my $id_name = $_;
-  $dbh->do("drop table if exists registered_${id_name}s");
+sub usage {
+  my $supported_id_list = join( "\n", sort( keys(%ids) ) );
+  my $msg = <<"END_MSG";
+Usage : $0 dbfile
+
+Fetches the list of registered DVB IDs from the official DVB site and saves them
+as tables inside dbfile under the names registered_*_ids. Any tables with the
+same names are dropped.
+
+Currently supported IDs are :
+$supported_id_list
+END_MSG
+  print STDERR $msg;
+  exit 1;
 }
+
+usage() unless scalar(@ARGV) == 1;
+
+$dbh = DBI->connect( "dbi:SQLite:dbname=$ARGV[0]", "", "" );
+
+Readonly::Scalar my $dvbservices_url_base =>
+  'http://www.dvbservices.com/identifiers/export/';
 
 my $ua = LWP::UserAgent->new;
 $ua->agent("dvbindexRegisteredIDsFetcher/1.0");
@@ -89,7 +139,7 @@ foreach ( keys(%ids) ) {
   }
 
   print STDERR "success.\n";
-  drop_if_exists($_);
   parse_xlsx( $res->content, $ids{$_} );
 }
 
+exit 0;
