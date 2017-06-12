@@ -26,6 +26,7 @@ typedef struct AVStream AVStream;
 typedef struct dvbpsi_pat_s dvbpsi_pat_t;
 typedef struct dvbpsi_pmt_s dvbpsi_pmt_t;
 typedef struct dvbpsi_sdt_s dvbpsi_sdt_t;
+typedef struct dvbpsi_nit_s dvbpsi_nit_t;
 
 typedef struct db_export_ {
   sqlite3 *db;
@@ -42,6 +43,8 @@ void db_export_pmt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_pmt_t *pmt);
 void db_export_sdt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_sdt_t *sdt);
+void db_export_nit(db_export *exp, sqlite3_int64 file_rowid,
+                   const dvbpsi_nit_t *nit);
 int db_has_file(db_export *exp, const char *path, off_t size);
 sqlite3_int64 db_export_file(db_export *exp, const char *path, off_t size);
 void db_export_close(db_export *exp);

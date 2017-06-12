@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1)
 project(dvbindex C)
 
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unused-local-typedefs")
 
 find_package(PkgConfig)
 pkg_check_modules(FFMPEG REQUIRED libavformat libavutil libavcodec)

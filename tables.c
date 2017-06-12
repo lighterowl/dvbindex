@@ -123,6 +123,31 @@ STATIC_ASSERT(ARRAY_SIZE(subtitle_contents_coldefs) ==
                   SUBTITLE_CONTENT_COLUMN__LAST - 1,
               subtitle_contents_invalid_columns);
 
+static const dvbindex_table_column_def networks_coldefs[] = {
+    {"file_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"network_id", "NOT NULL", SQLITE_INTEGER},
+    {"network_name", "", SQLITE_TEXT}};
+
+STATIC_ASSERT(ARRAY_SIZE(networks_coldefs) == NETWORK_COLUMN__LAST - 1,
+              networks_invalid_coldefs);
+
+static const dvbindex_table_column_def transport_streams_coldefs[] = {
+    {"network_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"tsid", "NOT NULL", SQLITE_INTEGER},
+    {"onid", "NOT NULL", SQLITE_INTEGER}};
+
+STATIC_ASSERT(ARRAY_SIZE(transport_streams_coldefs) ==
+                  TRANSPORT_STREAM_COLUMN__LAST - 1,
+              transport_streams_invalid_coldefs);
+
+static const dvbindex_table_column_def ts_services_coldefs[] = {
+    {"ts_rowid", "NOT NULL", SQLITE_INTEGER},
+    {"service_id", "NOT NULL", SQLITE_INTEGER},
+    {"service_type", "NOT NULL", SQLITE_INTEGER}};
+
+STATIC_ASSERT(ARRAY_SIZE(ts_services_coldefs) == TS_SERVICE_COLUMN__LAST - 1,
+              ts_services_invalid_coldefs);
+
 /* clang-format off */
 
 #define DEFINE_TABLE(x) \
@@ -141,7 +166,12 @@ const dvbindex_table_def *table_get_def(dvbindex_table t) {
                                               DEFINE_TABLE(files),
                                               DEFINE_TABLE(lang_specs),
                                               DEFINE_TABLE(ttx_pages),
-                                              DEFINE_TABLE(subtitle_contents)};
+                                              DEFINE_TABLE(subtitle_contents),
+                                              DEFINE_TABLE(networks),
+                                              DEFINE_TABLE(transport_streams),
+                                              DEFINE_TABLE(ts_services)};
+  STATIC_ASSERT(ARRAY_SIZE(tables) == DVBINDEX_TABLE__LAST,
+                not_all_tables_defined);
   assert(t < DVBINDEX_TABLE__LAST);
   return tables + t;
 }

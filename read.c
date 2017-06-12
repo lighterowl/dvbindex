@@ -34,6 +34,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <dvbpsi/dvbpsi.h>
 
 #include <dvbpsi/demux.h>
+#include <dvbpsi/nit.h>
 #include <dvbpsi/pat.h>
 #include <dvbpsi/pmt.h>
 #include <dvbpsi/sdt.h>
@@ -59,7 +60,8 @@ typedef void (*dvbpsi_detach_fn_w_tid)(dvbpsi_t *p_dvbpsi, uint8_t i_table_id,
 typedef enum psi_monitor_type_ {
   PSI_MONITOR_PAT,
   PSI_MONITOR_PMT,
-  PSI_MONITOR_SDT
+  PSI_MONITOR_SDT,
+  PSI_MONITOR_NIT
 } psi_monitor_type;
 
 typedef struct psi_monitor_ {
@@ -68,6 +70,7 @@ typedef struct psi_monitor_ {
     dvbpsi_detach_fn d;
     dvbpsi_detach_fn_w_tid d_tid;
   } detach;
+  int is_ready;
   psi_monitor_type type;
   uint16_t pid;
   uint16_t extension;
@@ -103,18 +106,29 @@ static dvbpsi_t *create_dvbpsi_handle(void) {
 }
 
 static void psi_monitor_simple_detach_init(psi_monitor *mon,
-                                           dvbpsi_detach_fn detach) {
+                                           dvbpsi_detach_fn detach,
+                                           uint8_t table_id) {
   mon->handle = create_dvbpsi_handle();
   mon->detach.d = detach;
+  mon->table_id = table_id;
+  mon->is_ready = 1;
+}
+
+static void psi_monitor_ext_detach_preinit(psi_monitor *mon,
+                                           dvbpsi_detach_fn_w_tid detach,
+                                           uint8_t table_id) {
+  mon->handle = create_dvbpsi_handle();
+  mon->detach.d_tid = detach;
+  mon->table_id = table_id;
+  mon->is_ready = 0;
 }
 
 static void psi_monitor_ext_detach_init(psi_monitor *mon,
                                         dvbpsi_detach_fn_w_tid detach,
                                         uint8_t table_id, uint16_t extension) {
-  mon->handle = create_dvbpsi_handle();
-  mon->detach.d_tid = detach;
-  mon->table_id = table_id;
+  psi_monitor_ext_detach_preinit(mon, detach, table_id);
   mon->extension = extension;
+  mon->is_ready = 1;
 }
 
 static int psi_monitor_type_is_extended_detach(psi_monitor_type t) {
@@ -123,6 +137,7 @@ static int psi_monitor_type_is_extended_detach(psi_monitor_type t) {
   case PSI_MONITOR_PMT:
     return 0;
   case PSI_MONITOR_SDT:
+  case PSI_MONITOR_NIT:
     return 1;
   }
   assert(0 && "invalid psi_monitor_type");
@@ -131,7 +146,9 @@ static int psi_monitor_type_is_extended_detach(psi_monitor_type t) {
 
 static void psi_monitor_destroy(psi_monitor *mon) {
   if (psi_monitor_type_is_extended_detach(mon->type)) {
-    mon->detach.d_tid(mon->handle, mon->table_id, mon->extension);
+    if (mon->is_ready) {
+      mon->detach.d_tid(mon->handle, mon->table_id, mon->extension);
+    }
     dvbpsi_DetachDemux(mon->handle);
   } else {
     mon->detach.d(mon->handle);
@@ -139,14 +156,18 @@ static void psi_monitor_destroy(psi_monitor *mon) {
   dvbpsi_delete(mon->handle);
 }
 
+#define PAT_TABLE_ID 0
+
 static void pat_monitor_init(psi_monitor *mon) {
-  psi_monitor_simple_detach_init(mon, dvbpsi_pat_detach);
+  psi_monitor_simple_detach_init(mon, dvbpsi_pat_detach, PAT_TABLE_ID);
   mon->pid = 0;
   mon->type = PSI_MONITOR_PAT;
 }
 
+#define PMT_TABLE_ID 2
+
 static void pmt_monitor_init(psi_monitor *mon, uint16_t pid) {
-  psi_monitor_simple_detach_init(mon, dvbpsi_pmt_detach);
+  psi_monitor_simple_detach_init(mon, dvbpsi_pmt_detach, PMT_TABLE_ID);
   mon->pid = pid;
   mon->type = PSI_MONITOR_PMT;
 }
@@ -159,6 +180,12 @@ static void sdt_monitor_init(psi_monitor *mon, uint8_t table_id,
   psi_monitor_ext_detach_init(mon, dvbpsi_sdt_detach, table_id, tsid);
   mon->pid = SDT_PID;
   mon->type = PSI_MONITOR_SDT;
+}
+
+static void nit_monitor_init(psi_monitor *mon, uint8_t table_id, uint16_t pid) {
+  psi_monitor_ext_detach_preinit(mon, dvbpsi_nit_detach, table_id);
+  mon->pid = pid;
+  mon->type = PSI_MONITOR_NIT;
 }
 
 typedef dvbpsi_sdt_t *dvbpsi_sdt_t_p;
@@ -175,6 +202,7 @@ typedef struct {
   dvbpsi_pat_t *current_pat;
   vec_dvbpsi_pmt_t_p current_pmts;
   vec_dvbpsi_sdt_t_p current_sdts;
+  dvbpsi_nit_t *current_nit;
   int has_file_rowid;
 } psi_parse_state;
 
@@ -251,6 +279,24 @@ static void psi_sdt_cbk(void *p_cb_data, dvbpsi_sdt_t *p_new_sdt) {
   }
 }
 
+static int should_discard_nit(const dvbpsi_nit_t *current_nit,
+                              const dvbpsi_nit_t *new_nit) {
+  return current_nit->i_network_id == new_nit->i_network_id
+      && current_nit->i_version == new_nit->i_version
+      && current_nit->b_current_next == new_nit->b_current_next;
+}
+
+static void psi_nit_cbk(void *p_cb_data, dvbpsi_nit_t *p_new_nit) {
+  psi_parse_state *state = p_cb_data;
+  if(state->current_nit && should_discard_nit(state->current_nit, p_new_nit)) {
+    dvbpsi_nit_delete(p_new_nit);
+    return;
+  }
+
+  state->current_nit = p_new_nit;
+  db_export_nit(state->db, state->file_rowid, p_new_nit);
+}
+
 static dvbpsi_pmt_t_p *get_program_pmt(vec_dvbpsi_pmt_t_p *pmts,
                                        uint16_t pgmno) {
   for (size_t i = 0; i < pmts->size; ++i) {
@@ -303,6 +349,30 @@ static void psi_sdt_demux_cbk(dvbpsi_t *handle, uint8_t table_id, uint16_t tsid,
   }
 }
 
+static psi_monitor *vec_psi_monitor_search(vec_psi_monitor *vec,
+                                           uint8_t table_id) {
+  for (size_t i = 0; i < vec->size; ++i) {
+    if (vec->data[i].table_id == table_id)
+      return (vec->data + i);
+  }
+  return 0;
+}
+
+#define NIT_CURRENT_TABLE_ID 0x40
+
+static void psi_nit_demux_cbk(dvbpsi_t *handle, uint8_t table_id,
+                              uint16_t network_id, void *p_cb_data) {
+  psi_parse_state *handles = p_cb_data;
+  if (table_id == NIT_CURRENT_TABLE_ID) {
+    psi_monitor *nit_mon =
+        vec_psi_monitor_search(&handles->psi_monitors, table_id);
+    assert(nit_mon);
+    nit_mon->extension = network_id;
+    nit_mon->is_ready = 1;
+    dvbpsi_nit_attach(handle, table_id, network_id, psi_nit_cbk, handles);
+  }
+}
+
 static void ensure_file_has_rowid(psi_parse_state *handles) {
   if (!handles->has_file_rowid) {
     handles->file_rowid =
@@ -312,12 +382,19 @@ static void ensure_file_has_rowid(psi_parse_state *handles) {
   }
 }
 
+#define NIT_DEFAULT_PID 0x10
+
 static void psi_new_pat_received(psi_parse_state *handles,
                                  dvbpsi_pat_t *new_pat) {
   struct dvbpsi_pat_program_s *program = new_pat->p_first_program;
   psi_destroy_pmt(handles);
+  uint16_t nit_pid = NIT_DEFAULT_PID;
   while (program) {
-    psi_push_new_pmt(handles, program);
+    if (program->i_number == 0) {
+      nit_pid = program->i_pid;
+    } else {
+      psi_push_new_pmt(handles, program);
+    }
     program = program->p_next;
   }
   dvbpsi_pat_delete(handles->current_pat);
@@ -327,6 +404,9 @@ static void psi_new_pat_received(psi_parse_state *handles,
   psi_monitor *sdt_mon = vec_psi_monitor_write(&handles->psi_monitors);
   sdt_monitor_init(sdt_mon, SDT_CURRENT_TABLE_ID, new_pat->i_ts_id);
   dvbpsi_AttachDemux(sdt_mon->handle, psi_sdt_demux_cbk, handles);
+  psi_monitor *nit_mon = vec_psi_monitor_write(&handles->psi_monitors);
+  nit_monitor_init(nit_mon, NIT_CURRENT_TABLE_ID, nit_pid);
+  dvbpsi_AttachDemux(nit_mon->handle, psi_nit_demux_cbk, handles);
 }
 
 static void psi_pat_cbk(void *p_cb_data, dvbpsi_pat_t *p_new_pat) {
@@ -354,11 +434,15 @@ static void psi_handle_vec_init(psi_parse_state *handles, db_export *db) {
   handles->has_file_rowid = 0;
   vec_dvbpsi_pmt_t_p_init(&handles->current_pmts);
   vec_dvbpsi_sdt_t_p_init(&handles->current_sdts);
+  handles->current_nit = 0;
 }
 
 static void psi_handle_vec_destroy(psi_parse_state *handles) {
   if (handles->current_pat) {
     dvbpsi_pat_delete(handles->current_pat);
+  }
+  if (handles->current_nit) {
+    dvbpsi_nit_delete(handles->current_nit);
   }
   psi_destroy_pmt_data(handles);
   vec_dvbpsi_pmt_t_p_destroy(&handles->current_pmts);

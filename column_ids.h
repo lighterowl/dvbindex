@@ -108,4 +108,25 @@ typedef enum subtitle_content_col_id_ {
   SUBTITLE_CONTENT_COLUMN__LAST
 } subtitle_content_col_id;
 
+typedef enum network_col_id_ {
+  NETWORK_COLUMN_FILE_ROWID = 1,
+  NETWORK_COLUMN_NETWORK_ID,
+  NETWORK_COLUMN_NETWORK_NAME,
+  NETWORK_COLUMN__LAST
+} network_col_id;
+
+typedef enum transport_stream_col_id_ {
+  TRANSPORT_STREAM_COLUMN_NETWORK_ROWID = 1,
+  TRANSPORT_STREAM_COLUMN_TSID,
+  TRANSPORT_STREAM_COLUMN_ONID,
+  TRANSPORT_STREAM_COLUMN__LAST
+} transport_stream_col_id;
+
+typedef enum ts_service_col_id_ {
+  TS_SERVICE_COLUMN_TS_ROWID = 1,
+  TS_SERVICE_COLUMN_SERVICE_ID,
+  TS_SERVICE_COLUMN_SERVICE_TYPE,
+  TS_SERVICE_COLUMN__LAST
+} ts_service_col_id;
+
 #endif

@@ -28,11 +28,14 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <dvbpsi/descriptor.h>
 
 #include <dvbpsi/dvbpsi.h>
+#include <dvbpsi/nit.h>
 #include <dvbpsi/pat.h>
 #include <dvbpsi/pmt.h>
 #include <dvbpsi/sdt.h>
 
 #include <dvbpsi/dr_0a.h>
+#include <dvbpsi/dr_40.h>
+#include <dvbpsi/dr_41.h>
 #include <dvbpsi/dr_48.h>
 #include <dvbpsi/dr_56.h>
 #include <dvbpsi/dr_59.h>
@@ -44,7 +47,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define DVBINDEX_SQLITE_APPLICATION_ID 0x12F834B
 
 /* increment this whenever the schema changes */
-#define DVBINDEX_USER_VERSION 4
+#define DVBINDEX_USER_VERSION 5
 
 static void start_transaction(sqlite3 *db) {
   int rc = sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
@@ -521,4 +524,81 @@ int db_has_file(db_export *exp, const char *path, off_t size) {
   sqlite3_reset(exp->file_select);
   assert(rv == SQLITE_ROW || rv == SQLITE_DONE);
   return rv == SQLITE_ROW;
+}
+
+static void export_nit_descriptors(sqlite3_stmt *stmt,
+                                   dvbpsi_descriptor_t *dr) {
+  while (dr) {
+    switch (dr->i_tag) {
+    case 0x40: {
+      dvbpsi_network_name_dr_t *netname = dvbpsi_DecodeNetworkNameDr(dr);
+      if (netname) {
+        size_t outlen;
+        char *utf8 = dvbstring_to_utf8(netname->i_name_byte,
+                                       netname->i_name_length, &outlen);
+        sqlite3_bind_text(stmt, NETWORK_COLUMN_NETWORK_NAME, utf8, outlen,
+                          free);
+      }
+      break;
+    }
+    }
+
+    dr = dr->p_next;
+  }
+}
+
+static void export_nit_ts_descriptors(db_export *exp,
+                                      sqlite3_int64 nit_ts_rowid,
+                                      dvbpsi_descriptor_t *dr) {
+  while (dr) {
+    switch (dr->i_tag) {
+    case 0x41: {
+      dvbpsi_service_list_dr_t *slist = dvbpsi_DecodeServiceListDr(dr);
+      if (slist) {
+        sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_TS_SERVICES];
+        for (unsigned int i = 0; i < slist->i_service_count; ++i) {
+          sqlite3_reset(stmt);
+          sqlite3_bind_int64(stmt, TS_SERVICE_COLUMN_TS_ROWID, nit_ts_rowid);
+          sqlite3_bind_int(stmt, TS_SERVICE_COLUMN_SERVICE_ID,
+                           slist->i_service[i].i_service_id);
+          sqlite3_bind_int(stmt, TS_SERVICE_COLUMN_SERVICE_TYPE,
+                           slist->i_service[i].i_service_type);
+          sqlite3_step(stmt);
+        }
+      }
+    }
+    }
+
+    dr = dr->p_next;
+  }
+}
+
+static void export_nit_transport_streams(db_export *exp,
+                                         sqlite3_int64 nit_rowid,
+                                         dvbpsi_nit_ts_t *ts) {
+  while (ts) {
+    sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_TRANSPORT_STREAMS];
+    sqlite3_reset(stmt);
+    sqlite3_bind_int64(stmt, TRANSPORT_STREAM_COLUMN_NETWORK_ROWID, nit_rowid);
+    sqlite3_bind_int(stmt, TRANSPORT_STREAM_COLUMN_TSID, ts->i_ts_id);
+    sqlite3_bind_int(stmt, TRANSPORT_STREAM_COLUMN_ONID, ts->i_orig_network_id);
+    sqlite3_step(stmt);
+    sqlite3_int64 nit_ts_rowid = sqlite3_last_insert_rowid(exp->db);
+    export_nit_ts_descriptors(exp, nit_ts_rowid, ts->p_first_descriptor);
+    ts = ts->p_next;
+  }
+}
+
+void db_export_nit(db_export *exp, sqlite3_int64 file_rowid,
+                   const dvbpsi_nit_t *nit) {
+  start_transaction(exp->db);
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_NETWORKS];
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, NETWORK_COLUMN_FILE_ROWID, file_rowid);
+  sqlite3_bind_int(stmt, NETWORK_COLUMN_NETWORK_ID, nit->i_network_id);
+  export_nit_descriptors(stmt, nit->p_first_descriptor);
+  sqlite3_step(stmt);
+  sqlite3_int64 nit_rowid = sqlite3_last_insert_rowid(exp->db);
+  export_nit_transport_streams(exp, nit_rowid, nit->p_first_ts);
+  end_transaction(exp->db);
 }
