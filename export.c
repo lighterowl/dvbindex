@@ -220,25 +220,12 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
     drop_tables(exp->db);
   }
 
-  sqlite3_stmt **insert_statements[DVBINDEX_TABLE__LAST] = {
-      &exp->aud_stream_insert,
-      &exp->vid_stream_insert,
-      &exp->pat_insert,
-      &exp->pmt_insert,
-      &exp->elem_stream_insert,
-      &exp->sdt_insert,
-      &exp->service_insert,
-      &exp->file_insert,
-      &exp->lang_spec_insert,
-      &exp->ttx_page_insert,
-      &exp->subtitle_content_insert};
-
-  for (size_t i = 0; i < DVBINDEX_TABLE__LAST; ++i) {
+  for (dvbindex_table i = 0; i < DVBINDEX_TABLE__LAST; ++i) {
     rv = create_table(exp->db, table_get_def(i), error);
     if (rv != SQLITE_OK) {
       goto beach;
     }
-    rv = create_insert_statement(exp->db, insert_statements[i],
+    rv = create_insert_statement(exp->db, &exp->insert_stmts[i],
                                  table_get_def(i));
     if (rv != SQLITE_OK) {
       goto beach;
@@ -254,18 +241,10 @@ beach:
 }
 
 void db_export_close(db_export *exp) {
-  sqlite3_finalize(exp->subtitle_content_insert);
-  sqlite3_finalize(exp->ttx_page_insert);
-  sqlite3_finalize(exp->lang_spec_insert);
+  for (size_t i = 0; i < ARRAY_SIZE(exp->insert_stmts); ++i) {
+    sqlite3_finalize(exp->insert_stmts[i]);
+  }
   sqlite3_finalize(exp->file_select);
-  sqlite3_finalize(exp->file_insert);
-  sqlite3_finalize(exp->service_insert);
-  sqlite3_finalize(exp->sdt_insert);
-  sqlite3_finalize(exp->elem_stream_insert);
-  sqlite3_finalize(exp->pmt_insert);
-  sqlite3_finalize(exp->pat_insert);
-  sqlite3_finalize(exp->aud_stream_insert);
-  sqlite3_finalize(exp->vid_stream_insert);
   sqlite3_close_v2(exp->db);
 }
 
@@ -322,10 +301,12 @@ void db_export_av_streams(db_export *exp, sqlite3_int64 file_rowid,
     const AVStream *s = streams[i];
     switch (s->codecpar->codec_type) {
     case AVMEDIA_TYPE_VIDEO:
-      export_video_stream(exp->vid_stream_insert, file_rowid, s);
+      export_video_stream(exp->insert_stmts[DVBINDEX_TABLE_VID_STREAMS],
+                          file_rowid, s);
       break;
     case AVMEDIA_TYPE_AUDIO:
-      export_audio_stream(exp->aud_stream_insert, file_rowid, s);
+      export_audio_stream(exp->insert_stmts[DVBINDEX_TABLE_AUD_STREAMS],
+                          file_rowid, s);
       break;
     default:
       break;
@@ -400,18 +381,21 @@ static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
   while (dr) {
     switch (dr->i_tag) {
     case 0x0a:
-      export_iso639_descriptor(exp->lang_spec_insert, dr, es_rowid);
+      export_iso639_descriptor(exp->insert_stmts[DVBINDEX_TABLE_LANG_SPECS], dr,
+                               es_rowid);
       break;
 
     /* descriptors 46h and 56h have exactly the same structure, as documented
      * in EN 300 468 V1.15.1. */
     case 0x46:
     case 0x56:
-      export_teletext_descriptor(exp->ttx_page_insert, dr, es_rowid);
+      export_teletext_descriptor(exp->insert_stmts[DVBINDEX_TABLE_TTX_PAGES],
+                                 dr, es_rowid);
       break;
 
     case 0x59:
-      export_subtitle_descriptor(exp->subtitle_content_insert, dr, es_rowid);
+      export_subtitle_descriptor(
+          exp->insert_stmts[DVBINDEX_TABLE_SUBTITLE_CONTENTS], dr, es_rowid);
       break;
     }
 
@@ -421,37 +405,37 @@ static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
 
 static void export_pmt_es(db_export *exp, sqlite3_int64 pmt_rowid,
                           const dvbpsi_pmt_es_t *es) {
-  sqlite3_reset(exp->elem_stream_insert);
-  sqlite3_bind_int64(exp->elem_stream_insert, ELEM_STREAM_COLUMN_PMT_ROWID,
-                     pmt_rowid);
-  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_COLUMN_TYPE,
-                   es->i_type);
-  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_COLUMN_PID, es->i_pid);
-  sqlite3_step(exp->elem_stream_insert);
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_ELEM_STREAMS];
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, ELEM_STREAM_COLUMN_PMT_ROWID, pmt_rowid);
+  sqlite3_bind_int(stmt, ELEM_STREAM_COLUMN_TYPE, es->i_type);
+  sqlite3_bind_int(stmt, ELEM_STREAM_COLUMN_PID, es->i_pid);
+  sqlite3_step(stmt);
   sqlite3_int64 es_rowid = sqlite3_last_insert_rowid(exp->db);
   export_pmt_es_descriptors(exp, es_rowid, es->p_first_descriptor);
 }
 
 sqlite3_int64 db_export_pat(db_export *exp, sqlite3_int64 file_rowid,
                             const dvbpsi_pat_t *pat) {
-  sqlite3_reset(exp->pat_insert);
-  sqlite3_bind_int64(exp->pat_insert, PAT_COLUMN_FILE_ROWID, file_rowid);
-  sqlite3_bind_int(exp->pat_insert, PAT_COLUMN_TSID, pat->i_ts_id);
-  sqlite3_bind_int(exp->pat_insert, PAT_COLUMN_VERSION, pat->i_version);
-  sqlite3_step(exp->pat_insert);
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_PATS];
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, PAT_COLUMN_FILE_ROWID, file_rowid);
+  sqlite3_bind_int(stmt, PAT_COLUMN_TSID, pat->i_ts_id);
+  sqlite3_bind_int(stmt, PAT_COLUMN_VERSION, pat->i_version);
+  sqlite3_step(stmt);
   return sqlite3_last_insert_rowid(exp->db);
 }
 
 void db_export_pmt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_pmt_t *pmt) {
   start_transaction(exp->db);
-  sqlite3_reset(exp->pmt_insert);
-  sqlite3_bind_int64(exp->pmt_insert, PMT_COLUMN_PAT_ROWID, pat_rowid);
-  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_PROGRAM_NUMBER,
-                   pmt->i_program_number);
-  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_VERSION, pmt->i_version);
-  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_PCR_PID, pmt->i_pcr_pid);
-  sqlite3_step(exp->pmt_insert);
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_PMTS];
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, PMT_COLUMN_PAT_ROWID, pat_rowid);
+  sqlite3_bind_int(stmt, PMT_COLUMN_PROGRAM_NUMBER, pmt->i_program_number);
+  sqlite3_bind_int(stmt, PMT_COLUMN_VERSION, pmt->i_version);
+  sqlite3_bind_int(stmt, PMT_COLUMN_PCR_PID, pmt->i_pcr_pid);
+  sqlite3_step(stmt);
   sqlite3_int64 pmt_rowid = sqlite3_last_insert_rowid(exp->db);
   dvbpsi_pmt_es_t *es = pmt->p_first_es;
   while (es) {
@@ -489,28 +473,27 @@ static void export_sdt_descriptors(sqlite3_stmt *stmt,
 
 static void export_sdt_service(db_export *exp, sqlite3_int64 sdt_rowid,
                                const dvbpsi_sdt_service_t *service) {
-  sqlite3_reset(exp->service_insert);
-  sqlite3_bind_int64(exp->service_insert, SERVICE_COLUMN_SDT_ROWID, sdt_rowid);
-  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_PROGRAM_NUMBER,
-                   service->i_service_id);
-  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_RUNNING_STATUS,
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_SERVICES];
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, SERVICE_COLUMN_SDT_ROWID, sdt_rowid);
+  sqlite3_bind_int(stmt, SERVICE_COLUMN_PROGRAM_NUMBER, service->i_service_id);
+  sqlite3_bind_int(stmt, SERVICE_COLUMN_RUNNING_STATUS,
                    service->i_running_status);
-  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_SCRAMBLED,
-                   service->b_free_ca);
-  sqlite3_bind_null(exp->service_insert, SERVICE_COLUMN_NAME);
-  export_sdt_descriptors(exp->service_insert, service->p_first_descriptor);
-  sqlite3_step(exp->service_insert);
+  sqlite3_bind_int(stmt, SERVICE_COLUMN_SCRAMBLED, service->b_free_ca);
+  sqlite3_bind_null(stmt, SERVICE_COLUMN_NAME);
+  export_sdt_descriptors(stmt, service->p_first_descriptor);
+  sqlite3_step(stmt);
 }
 
 void db_export_sdt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_sdt_t *sdt) {
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_SDTS];
   start_transaction(exp->db);
-  sqlite3_reset(exp->sdt_insert);
-  sqlite3_bind_int64(exp->sdt_insert, SDT_COLUMN_PAT_ROWID, pat_rowid);
-  sqlite3_bind_int(exp->sdt_insert, SDT_COLUMN_VERSION, sdt->i_version);
-  sqlite3_bind_int(exp->sdt_insert, SDT_COLUMN_ORIGINAL_NETWORK_ID,
-                   sdt->i_network_id);
-  sqlite3_step(exp->sdt_insert);
+  sqlite3_reset(stmt);
+  sqlite3_bind_int64(stmt, SDT_COLUMN_PAT_ROWID, pat_rowid);
+  sqlite3_bind_int(stmt, SDT_COLUMN_VERSION, sdt->i_version);
+  sqlite3_bind_int(stmt, SDT_COLUMN_ORIGINAL_NETWORK_ID, sdt->i_network_id);
+  sqlite3_step(stmt);
   sqlite3_int64 sdt_rowid = sqlite3_last_insert_rowid(exp->db);
   dvbpsi_sdt_service_t *service = sdt->p_first_service;
   while (service) {
@@ -521,11 +504,12 @@ void db_export_sdt(db_export *exp, sqlite3_int64 pat_rowid,
 }
 
 sqlite3_int64 db_export_file(db_export *exp, const char *path, off_t size) {
-  sqlite3_reset(exp->file_insert);
-  sqlite3_bind_text(exp->file_insert, FILE_COLUMN_NAME,
-                    file_name_from_path(path), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int64(exp->file_insert, FILE_COLUMN_SIZE, size);
-  sqlite3_step(exp->file_insert);
+  sqlite3_stmt *stmt = exp->insert_stmts[DVBINDEX_TABLE_FILES];
+  sqlite3_reset(stmt);
+  sqlite3_bind_text(stmt, FILE_COLUMN_NAME, file_name_from_path(path), -1,
+                    SQLITE_TRANSIENT);
+  sqlite3_bind_int64(stmt, FILE_COLUMN_SIZE, size);
+  sqlite3_step(stmt);
   return sqlite3_last_insert_rowid(exp->db);
 }
 

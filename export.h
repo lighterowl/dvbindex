@@ -18,6 +18,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef DVBINDEX_EXPORT_H
 #define DVBINDEX_EXPORT_H
 
+#include "tables.h"
 #include <sqlite3.h>
 #include <sys/types.h>
 
@@ -28,18 +29,8 @@ typedef struct dvbpsi_sdt_s dvbpsi_sdt_t;
 
 typedef struct db_export_ {
   sqlite3 *db;
-  sqlite3_stmt *vid_stream_insert;
-  sqlite3_stmt *aud_stream_insert;
-  sqlite3_stmt *pat_insert;
-  sqlite3_stmt *pmt_insert;
-  sqlite3_stmt *elem_stream_insert;
-  sqlite3_stmt *sdt_insert;
-  sqlite3_stmt *service_insert;
-  sqlite3_stmt *file_insert;
+  sqlite3_stmt *insert_stmts[DVBINDEX_TABLE__LAST];
   sqlite3_stmt *file_select;
-  sqlite3_stmt *lang_spec_insert;
-  sqlite3_stmt *ttx_page_insert;
-  sqlite3_stmt *subtitle_content_insert;
 } db_export;
 
 int db_export_init(db_export *exp, const char *filename, char **error);
