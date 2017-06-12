@@ -23,6 +23,9 @@ add_executable(${PROJECT_NAME}
   version.h
   log.c
   log.h
+  tables.c
+  tables.h
+  column_ids.h
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -37,229 +37,14 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <dvbpsi/dr_56.h>
 #include <dvbpsi/dr_59.h>
 
+#include "column_ids.h"
 #include "dvbstring.h"
+#include "tables.h"
 
 #define DVBINDEX_SQLITE_APPLICATION_ID 0x12F834B
 
 /* increment this whenever the schema changes */
 #define DVBINDEX_USER_VERSION 4
-
-typedef struct column_def_ {
-  const char *name;
-  const char *constraints;
-  int type;
-} column_def;
-
-typedef enum vid_stream_col_id_ {
-  VID_STREAM_FILE_ROWID = 1,
-  VID_STREAM_PID,
-  VID_STREAM_FMT,
-  VID_STREAM_WIDTH,
-  VID_STREAM_HEIGHT,
-  VID_STREAM_FPS,
-  VID_STREAM_BITRATE,
-  VID_STREAM__LAST
-} vid_stream_col_id;
-
-static const column_def vid_streams_coldefs[] = {
-    {"file_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"pid", "NOT NULL", SQLITE_INTEGER},
-    {"fmt", "", SQLITE_TEXT},
-    {"width", "", SQLITE_INTEGER},
-    {"height", "", SQLITE_INTEGER},
-    {"fps", "", SQLITE_FLOAT},
-    {"bitrate", "", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(vid_streams_coldefs) == VID_STREAM__LAST - 1,
-              vid_streams_invalid_columns);
-
-typedef enum aud_stream_col_id_ {
-  AUD_STREAM_FILE_ROWID = 1,
-  AUD_STREAM_PID,
-  AUD_STREAM_FMT,
-  AUD_STREAM_CHANNELS,
-  AUD_STREAM_SAMPLE_RATE,
-  AUD_STREAM_BITRATE,
-  AUD_STREAM__LAST
-} aud_stream_col_id;
-
-static const column_def aud_streams_coldefs[] = {
-    {"file_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"pid", "NOT NULL", SQLITE_INTEGER},
-    {"fmt", "", SQLITE_TEXT},
-    {"channels", "", SQLITE_INTEGER},
-    {"sample_rate", "", SQLITE_INTEGER},
-    {"bitrate", "", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(aud_streams_coldefs) == AUD_STREAM__LAST - 1,
-              aud_streams_invalid_columns);
-
-typedef enum pat_col_id_ {
-  PAT_FILE_ROWID = 1,
-  PAT_TSID,
-  PAT_VERSION,
-  PAT__LAST
-} pat_col_id;
-
-static const column_def pats_coldefs[] = {
-    {"file_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"tsid", "NOT NULL", SQLITE_INTEGER},
-    {"version", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(pats_coldefs) == PAT__LAST - 1, pats_invalid_columns);
-
-typedef enum pmt_col_id_ {
-  PMT_PAT_ROWID = 1,
-  PMT_PROGRAM_NUMBER,
-  PMT_VERSION,
-  PMT_PCR_PID,
-  PMT__LAST
-} pmt_col_id;
-
-static const column_def pmts_coldefs[] = {
-    {"pat_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"program_number", "NOT NULL", SQLITE_INTEGER},
-    {"version", "NOT NULL", SQLITE_INTEGER},
-    {"pcr_pid", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(pmts_coldefs) == PMT__LAST - 1, pmts_invalid_columns);
-
-typedef enum elem_stream_col_id_ {
-  ELEM_STREAM_PMT_ROWID = 1,
-  ELEM_STREAM_TYPE,
-  ELEM_STREAM_PID,
-  ELEM_STREAM__LAST
-} elem_stream_col_id;
-
-static const column_def elem_streams_coldefs[] = {
-    {"pmt_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"stream_type", "NOT NULL", SQLITE_INTEGER},
-    {"pid", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(elem_streams_coldefs) == ELEM_STREAM__LAST - 1,
-              elem_streams_invalid_columns);
-
-typedef enum sdt_col_id {
-  SDT_PAT_ROWID = 1,
-  SDT_VERSION,
-  SDT_ORIGINAL_NETWORK_ID,
-  SDT__LAST
-} sdt_col_id;
-
-static const column_def sdts_coldefs[] = {
-    {"pat_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"version", "NOT NULL", SQLITE_INTEGER},
-    {"onid", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(sdts_coldefs) == SDT__LAST - 1, sdts_invalid_columns);
-
-typedef enum service_col_id_ {
-  SERVICE_SDT_ROWID = 1,
-  SERVICE_PROGRAM_NUMBER,
-  SERVICE_RUNNING_STATUS,
-  SERVICE_SCRAMBLED,
-  SERVICE_NAME,
-  SERVICE_PROVIDER_NAME,
-  SERVICE__LAST
-} service_col_id;
-
-static const column_def services_coldefs[] = {
-    {"sdt_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"program_number", "NOT NULL", SQLITE_INTEGER},
-    {"running_status", "NOT NULL", SQLITE_INTEGER},
-    {"scrambled", "NOT NULL", SQLITE_INTEGER},
-    {"name", "", SQLITE_TEXT},
-    {"provider_name", "", SQLITE_TEXT}};
-
-STATIC_ASSERT(ARRAY_SIZE(services_coldefs) == SERVICE__LAST - 1,
-              services_invalid_columns);
-
-typedef enum file_col_id_ { FILE_NAME = 1, FILE_SIZE, FILE__LAST } file_col_id;
-
-static const column_def files_coldefs[] = {
-    {"name", "NOT NULL", SQLITE_TEXT}, {"size", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(files_coldefs) == FILE__LAST - 1,
-              files_invalid_columns);
-
-typedef enum lang_spec_col_id_ {
-  LANG_SPEC_ELEM_STREAM_ROWID = 1,
-  LANG_SPEC_LANGUAGE,
-  LANG_SPEC_AUDIO_TYPE,
-  LANG_SPEC__LAST
-} lang_spec_col_id;
-
-static const column_def lang_specs_coldefs[] = {
-    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"language", "NOT NULL", SQLITE_TEXT},
-    {"audio_type", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(lang_specs_coldefs) == LANG_SPEC__LAST - 1,
-              lang_specs_invalid_columns);
-
-typedef enum ttx_stream_col_id_ {
-  TTX_PAGE_ELEM_STREAM_ROWID = 1,
-  TTX_PAGE_LANGUAGE,
-  TTX_PAGE_TELETEXT_TYPE,
-  TTX_PAGE_MAGAZINE_NUMBER,
-  TTX_PAGE_PAGE_NUMBER,
-  TTX_PAGE__LAST
-} ttx_stream_col_id;
-
-static const column_def ttx_pages_coldefs[] = {
-    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"language", "NOT NULL", SQLITE_TEXT},
-    {"teletext_type", "NOT NULL", SQLITE_INTEGER},
-    {"magazine_number", "NOT NULL", SQLITE_INTEGER},
-    {"page_number", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(ttx_pages_coldefs) == TTX_PAGE__LAST - 1,
-              ttx_pages_invalid_columns);
-
-typedef enum subtitle_content_col_id_ {
-  SUBTITLE_CONTENT_ELEM_STREAM_ROWID = 1,
-  SUBTITLE_CONTENT_LANGUAGE,
-  SUBTITLE_CONTENT_SUBTITLE_TYPE,
-  SUBTITLE_CONTENT_COMPOSITION_PAGE_ID,
-  SUBTITLE_CONTENT_ANCILLARY_PAGE_ID,
-  SUBTITLE_CONTENT__LAST
-} subtitle_content_col_id;
-
-static const column_def subtitle_contents_coldefs[] = {
-    {"elem_stream_rowid", "NOT NULL", SQLITE_INTEGER},
-    {"language", "NOT NULL", SQLITE_TEXT},
-    {"subtitling_type", "NOT NULL", SQLITE_INTEGER},
-    {"composition_page_id", "NOT NULL", SQLITE_INTEGER},
-    {"ancillary_page_id", "NOT NULL", SQLITE_INTEGER}};
-
-STATIC_ASSERT(ARRAY_SIZE(subtitle_contents_coldefs) ==
-                  SUBTITLE_CONTENT__LAST - 1,
-              subtitle_contents_invalid_columns);
-
-typedef struct table_def_ {
-  const char *name;
-  const column_def *columns;
-  size_t num_columns;
-} table_def;
-
-/* clang-format off */
-
-#define DEFINE_TABLE(x) \
-  { #x, x##_coldefs, ARRAY_SIZE(x##_coldefs) }
-
-/* clang-format on */
-
-static const table_def tables[] = {DEFINE_TABLE(aud_streams),
-                                   DEFINE_TABLE(vid_streams),
-                                   DEFINE_TABLE(pats),
-                                   DEFINE_TABLE(pmts),
-                                   DEFINE_TABLE(elem_streams),
-                                   DEFINE_TABLE(sdts),
-                                   DEFINE_TABLE(services),
-                                   DEFINE_TABLE(files),
-                                   DEFINE_TABLE(lang_specs),
-                                   DEFINE_TABLE(ttx_pages),
-                                   DEFINE_TABLE(subtitle_contents)};
 
 static void start_transaction(sqlite3 *db) {
   int rc = sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
@@ -286,10 +71,12 @@ static const char *type_name(int type) {
   return 0;
 }
 
-typedef int (*query_build_callback)(char *, size_t, const column_def *);
+typedef int (*query_build_callback)(char *, size_t,
+                                    const dvbindex_table_column_def *);
 
 static int build_query(char *buf, int bufsize, const char *initial,
-                       const table_def *table, query_build_callback cbk) {
+                       const dvbindex_table_def *table,
+                       query_build_callback cbk) {
   int total_printed = 0;
   int printed = snprintf(buf, bufsize, initial, table->name);
   bufsize -= printed;
@@ -317,18 +104,19 @@ static int build_query(char *buf, int bufsize, const char *initial,
 }
 
 static int print_column_into_create(char *buf, size_t available,
-                                    const column_def *c) {
+                                    const dvbindex_table_column_def *c) {
   return snprintf(buf, available, "%s %s %s", c->name, type_name(c->type),
                   c->constraints);
 }
 
 static int print_asterisk_for_insert(char *buf, size_t available,
-                                     const column_def *c) {
+                                     const dvbindex_table_column_def *c) {
   (void)c;
   return snprintf(buf, available, "?");
 }
 
-static int create_table(sqlite3 *db, const table_def *table, char **error) {
+static int create_table(sqlite3 *db, const dvbindex_table_def *table,
+                        char **error) {
   char buf[4096];
   build_query(buf, sizeof(buf), "CREATE TABLE IF NOT EXISTS %s (", table,
               print_column_into_create);
@@ -336,7 +124,7 @@ static int create_table(sqlite3 *db, const table_def *table, char **error) {
 }
 
 static int create_insert_statement(sqlite3 *db, sqlite3_stmt **stmt,
-                                   const table_def *table) {
+                                   const dvbindex_table_def *table) {
   assert(stmt);
   char buf[4096];
   const char *tail;
@@ -394,7 +182,7 @@ static int check_user_version(sqlite3 *db) {
   return 0;
 }
 
-static void drop_table(sqlite3 *db, const table_def *table) {
+static void drop_table(sqlite3 *db, const dvbindex_table_def *table) {
   char *sql = sqlite3_mprintf("DROP TABLE IF EXISTS %s", table->name);
   assert(sql);
   int rv = sqlite3_exec(db, sql, 0, 0, 0);
@@ -403,8 +191,8 @@ static void drop_table(sqlite3 *db, const table_def *table) {
 }
 
 static void drop_tables(sqlite3 *db) {
-  for (size_t i = 0; i < ARRAY_SIZE(tables); ++i) {
-    drop_table(db, &tables[i]);
+  for (dvbindex_table i = 0; i < DVBINDEX_TABLE__LAST; ++i) {
+    drop_table(db, table_get_def(i));
   }
 }
 
@@ -432,7 +220,7 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
     drop_tables(exp->db);
   }
 
-  sqlite3_stmt **insert_statements[ARRAY_SIZE(tables)] = {
+  sqlite3_stmt **insert_statements[DVBINDEX_TABLE__LAST] = {
       &exp->aud_stream_insert,
       &exp->vid_stream_insert,
       &exp->pat_insert,
@@ -445,12 +233,13 @@ int db_export_init(db_export *exp, const char *filename, char **error) {
       &exp->ttx_page_insert,
       &exp->subtitle_content_insert};
 
-  for (size_t i = 0; i < ARRAY_SIZE(tables); ++i) {
-    rv = create_table(exp->db, &tables[i], error);
+  for (size_t i = 0; i < DVBINDEX_TABLE__LAST; ++i) {
+    rv = create_table(exp->db, table_get_def(i), error);
     if (rv != SQLITE_OK) {
       goto beach;
     }
-    rv = create_insert_statement(exp->db, insert_statements[i], &tables[i]);
+    rv = create_insert_statement(exp->db, insert_statements[i],
+                                 table_get_def(i));
     if (rv != SQLITE_OK) {
       goto beach;
     }
@@ -501,27 +290,28 @@ static void bind_ffmpeg_int(sqlite3_stmt *stmt, int pos, int64_t val) {
 static void export_video_stream(sqlite3_stmt *stmt, sqlite3_int64 file_rowid,
                                 const AVStream *stream) {
   sqlite3_reset(stmt);
-  sqlite3_bind_int64(stmt, VID_STREAM_FILE_ROWID, file_rowid);
-  sqlite3_bind_int(stmt, VID_STREAM_PID, stream->id);
-  codec_name_to_sql(stmt, VID_STREAM_FMT, stream->codecpar->codec_id);
-  bind_ffmpeg_int(stmt, VID_STREAM_WIDTH, stream->codecpar->width);
-  bind_ffmpeg_int(stmt, VID_STREAM_HEIGHT, stream->codecpar->height);
-  sqlite3_bind_double(stmt, VID_STREAM_FPS,
+  sqlite3_bind_int64(stmt, VID_STREAM_COLUMN_FILE_ROWID, file_rowid);
+  sqlite3_bind_int(stmt, VID_STREAM_COLUMN_PID, stream->id);
+  codec_name_to_sql(stmt, VID_STREAM_COLUMN_FMT, stream->codecpar->codec_id);
+  bind_ffmpeg_int(stmt, VID_STREAM_COLUMN_WIDTH, stream->codecpar->width);
+  bind_ffmpeg_int(stmt, VID_STREAM_COLUMN_HEIGHT, stream->codecpar->height);
+  sqlite3_bind_double(stmt, VID_STREAM_COLUMN_FPS,
                       stream->avg_frame_rate.num /
                           (double)stream->avg_frame_rate.den);
-  bind_ffmpeg_int(stmt, VID_STREAM_BITRATE, stream->codecpar->bit_rate);
+  bind_ffmpeg_int(stmt, VID_STREAM_COLUMN_BITRATE, stream->codecpar->bit_rate);
   sqlite3_step(stmt);
 }
 
 static void export_audio_stream(sqlite3_stmt *stmt, sqlite3_int64 file_rowid,
                                 const AVStream *stream) {
   sqlite3_reset(stmt);
-  sqlite3_bind_int64(stmt, AUD_STREAM_FILE_ROWID, file_rowid);
-  sqlite3_bind_int(stmt, AUD_STREAM_PID, stream->id);
-  codec_name_to_sql(stmt, AUD_STREAM_FMT, stream->codecpar->codec_id);
-  bind_ffmpeg_int(stmt, AUD_STREAM_CHANNELS, stream->codecpar->channels);
-  bind_ffmpeg_int(stmt, AUD_STREAM_SAMPLE_RATE, stream->codecpar->sample_rate);
-  bind_ffmpeg_int(stmt, AUD_STREAM_BITRATE, stream->codecpar->bit_rate);
+  sqlite3_bind_int64(stmt, AUD_STREAM_COLUMN_FILE_ROWID, file_rowid);
+  sqlite3_bind_int(stmt, AUD_STREAM_COLUMN_PID, stream->id);
+  codec_name_to_sql(stmt, AUD_STREAM_COLUMN_FMT, stream->codecpar->codec_id);
+  bind_ffmpeg_int(stmt, AUD_STREAM_COLUMN_CHANNELS, stream->codecpar->channels);
+  bind_ffmpeg_int(stmt, AUD_STREAM_COLUMN_SAMPLE_RATE,
+                  stream->codecpar->sample_rate);
+  bind_ffmpeg_int(stmt, AUD_STREAM_COLUMN_BITRATE, stream->codecpar->bit_rate);
   sqlite3_step(stmt);
 }
 
@@ -550,12 +340,12 @@ static void export_iso639_descriptor(sqlite3_stmt *stmt,
   dvbpsi_iso639_dr_t *iso639_dr = dvbpsi_DecodeISO639Dr(dr);
   for (uint8_t i = 0; i < iso639_dr->i_code_count; ++i) {
     sqlite3_reset(stmt);
-    sqlite3_bind_int64(stmt, LANG_SPEC_ELEM_STREAM_ROWID, es_rowid);
+    sqlite3_bind_int64(stmt, LANG_SPEC_COLUMN_ELEM_STREAM_ROWID, es_rowid);
     const char *code = (const char *)iso639_dr->code[i].iso_639_code;
-    sqlite3_bind_text(stmt, LANG_SPEC_LANGUAGE, code,
+    sqlite3_bind_text(stmt, LANG_SPEC_COLUMN_LANGUAGE, code,
                       sizeof(iso639_dr->code[i].iso_639_code),
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, LANG_SPEC_AUDIO_TYPE,
+    sqlite3_bind_int(stmt, LANG_SPEC_COLUMN_AUDIO_TYPE,
                      iso639_dr->code[i].i_audio_type);
     sqlite3_step(stmt);
   }
@@ -568,14 +358,16 @@ static void export_teletext_descriptor(sqlite3_stmt *stmt,
   for (uint8_t i = 0; i < teletext->i_pages_number; ++i) {
     dvbpsi_teletextpage_t *page = teletext->p_pages + i;
     sqlite3_reset(stmt);
-    sqlite3_bind_int64(stmt, TTX_PAGE_ELEM_STREAM_ROWID, es_rowid);
+    sqlite3_bind_int64(stmt, TTX_PAGE_COLUMN_ELEM_STREAM_ROWID, es_rowid);
     const char *code = (const char *)page->i_iso6392_language_code;
-    sqlite3_bind_text(stmt, TTX_PAGE_LANGUAGE, code,
+    sqlite3_bind_text(stmt, TTX_PAGE_COLUMN_LANGUAGE, code,
                       sizeof(page->i_iso6392_language_code), SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, TTX_PAGE_TELETEXT_TYPE, page->i_teletext_type);
-    sqlite3_bind_int(stmt, TTX_PAGE_MAGAZINE_NUMBER,
+    sqlite3_bind_int(stmt, TTX_PAGE_COLUMN_TELETEXT_TYPE,
+                     page->i_teletext_type);
+    sqlite3_bind_int(stmt, TTX_PAGE_COLUMN_MAGAZINE_NUMBER,
                      page->i_teletext_magazine_number);
-    sqlite3_bind_int(stmt, TTX_PAGE_PAGE_NUMBER, page->i_teletext_page_number);
+    sqlite3_bind_int(stmt, TTX_PAGE_COLUMN_PAGE_NUMBER,
+                     page->i_teletext_page_number);
     sqlite3_step(stmt);
   }
 }
@@ -587,16 +379,17 @@ static void export_subtitle_descriptor(sqlite3_stmt *stmt,
   for (uint8_t i = 0; i < subtitling->i_subtitles_number; ++i) {
     dvbpsi_subtitle_t *subtitle = subtitling->p_subtitle + i;
     sqlite3_reset(stmt);
-    sqlite3_bind_int64(stmt, SUBTITLE_CONTENT_ELEM_STREAM_ROWID, es_rowid);
+    sqlite3_bind_int64(stmt, SUBTITLE_CONTENT_COLUMN_ELEM_STREAM_ROWID,
+                       es_rowid);
     const char *code = (const char *)subtitle->i_iso6392_language_code;
-    sqlite3_bind_text(stmt, SUBTITLE_CONTENT_LANGUAGE, code,
+    sqlite3_bind_text(stmt, SUBTITLE_CONTENT_COLUMN_LANGUAGE, code,
                       sizeof(subtitle->i_iso6392_language_code),
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_SUBTITLE_TYPE,
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_COLUMN_SUBTITLE_TYPE,
                      subtitle->i_subtitling_type);
-    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_COMPOSITION_PAGE_ID,
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_COLUMN_COMPOSITION_PAGE_ID,
                      subtitle->i_composition_page_id);
-    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_ANCILLARY_PAGE_ID,
+    sqlite3_bind_int(stmt, SUBTITLE_CONTENT_COLUMN_ANCILLARY_PAGE_ID,
                      subtitle->i_ancillary_page_id);
     sqlite3_step(stmt);
   }
@@ -629,9 +422,11 @@ static void export_pmt_es_descriptors(db_export *exp, sqlite3_int64 es_rowid,
 static void export_pmt_es(db_export *exp, sqlite3_int64 pmt_rowid,
                           const dvbpsi_pmt_es_t *es) {
   sqlite3_reset(exp->elem_stream_insert);
-  sqlite3_bind_int64(exp->elem_stream_insert, ELEM_STREAM_PMT_ROWID, pmt_rowid);
-  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_TYPE, es->i_type);
-  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_PID, es->i_pid);
+  sqlite3_bind_int64(exp->elem_stream_insert, ELEM_STREAM_COLUMN_PMT_ROWID,
+                     pmt_rowid);
+  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_COLUMN_TYPE,
+                   es->i_type);
+  sqlite3_bind_int(exp->elem_stream_insert, ELEM_STREAM_COLUMN_PID, es->i_pid);
   sqlite3_step(exp->elem_stream_insert);
   sqlite3_int64 es_rowid = sqlite3_last_insert_rowid(exp->db);
   export_pmt_es_descriptors(exp, es_rowid, es->p_first_descriptor);
@@ -640,9 +435,9 @@ static void export_pmt_es(db_export *exp, sqlite3_int64 pmt_rowid,
 sqlite3_int64 db_export_pat(db_export *exp, sqlite3_int64 file_rowid,
                             const dvbpsi_pat_t *pat) {
   sqlite3_reset(exp->pat_insert);
-  sqlite3_bind_int64(exp->pat_insert, PAT_FILE_ROWID, file_rowid);
-  sqlite3_bind_int(exp->pat_insert, PAT_TSID, pat->i_ts_id);
-  sqlite3_bind_int(exp->pat_insert, PAT_VERSION, pat->i_version);
+  sqlite3_bind_int64(exp->pat_insert, PAT_COLUMN_FILE_ROWID, file_rowid);
+  sqlite3_bind_int(exp->pat_insert, PAT_COLUMN_TSID, pat->i_ts_id);
+  sqlite3_bind_int(exp->pat_insert, PAT_COLUMN_VERSION, pat->i_version);
   sqlite3_step(exp->pat_insert);
   return sqlite3_last_insert_rowid(exp->db);
 }
@@ -651,10 +446,11 @@ void db_export_pmt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_pmt_t *pmt) {
   start_transaction(exp->db);
   sqlite3_reset(exp->pmt_insert);
-  sqlite3_bind_int64(exp->pmt_insert, PMT_PAT_ROWID, pat_rowid);
-  sqlite3_bind_int(exp->pmt_insert, PMT_PROGRAM_NUMBER, pmt->i_program_number);
-  sqlite3_bind_int(exp->pmt_insert, PMT_VERSION, pmt->i_version);
-  sqlite3_bind_int(exp->pmt_insert, PMT_PCR_PID, pmt->i_pcr_pid);
+  sqlite3_bind_int64(exp->pmt_insert, PMT_COLUMN_PAT_ROWID, pat_rowid);
+  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_PROGRAM_NUMBER,
+                   pmt->i_program_number);
+  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_VERSION, pmt->i_version);
+  sqlite3_bind_int(exp->pmt_insert, PMT_COLUMN_PCR_PID, pmt->i_pcr_pid);
   sqlite3_step(exp->pmt_insert);
   sqlite3_int64 pmt_rowid = sqlite3_last_insert_rowid(exp->db);
   dvbpsi_pmt_es_t *es = pmt->p_first_es;
@@ -676,12 +472,13 @@ static void export_sdt_descriptors(sqlite3_stmt *stmt,
         char *str =
             dvbstring_to_utf8(service_dr->i_service_name,
                               service_dr->i_service_name_length, &outlen);
-        sqlite3_bind_text64(stmt, SERVICE_NAME, str, outlen, free, SQLITE_UTF8);
+        sqlite3_bind_text64(stmt, SERVICE_COLUMN_NAME, str, outlen, free,
+                            SQLITE_UTF8);
         str = dvbstring_to_utf8(service_dr->i_service_provider_name,
                                 service_dr->i_service_provider_name_length,
                                 &outlen);
-        sqlite3_bind_text64(stmt, SERVICE_PROVIDER_NAME, str, outlen, free,
-                            SQLITE_UTF8);
+        sqlite3_bind_text64(stmt, SERVICE_COLUMN_PROVIDER_NAME, str, outlen,
+                            free, SQLITE_UTF8);
       }
     } break;
     }
@@ -693,13 +490,14 @@ static void export_sdt_descriptors(sqlite3_stmt *stmt,
 static void export_sdt_service(db_export *exp, sqlite3_int64 sdt_rowid,
                                const dvbpsi_sdt_service_t *service) {
   sqlite3_reset(exp->service_insert);
-  sqlite3_bind_int64(exp->service_insert, SERVICE_SDT_ROWID, sdt_rowid);
-  sqlite3_bind_int(exp->service_insert, SERVICE_PROGRAM_NUMBER,
+  sqlite3_bind_int64(exp->service_insert, SERVICE_COLUMN_SDT_ROWID, sdt_rowid);
+  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_PROGRAM_NUMBER,
                    service->i_service_id);
-  sqlite3_bind_int(exp->service_insert, SERVICE_RUNNING_STATUS,
+  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_RUNNING_STATUS,
                    service->i_running_status);
-  sqlite3_bind_int(exp->service_insert, SERVICE_SCRAMBLED, service->b_free_ca);
-  sqlite3_bind_null(exp->service_insert, SERVICE_NAME);
+  sqlite3_bind_int(exp->service_insert, SERVICE_COLUMN_SCRAMBLED,
+                   service->b_free_ca);
+  sqlite3_bind_null(exp->service_insert, SERVICE_COLUMN_NAME);
   export_sdt_descriptors(exp->service_insert, service->p_first_descriptor);
   sqlite3_step(exp->service_insert);
 }
@@ -708,9 +506,10 @@ void db_export_sdt(db_export *exp, sqlite3_int64 pat_rowid,
                    const dvbpsi_sdt_t *sdt) {
   start_transaction(exp->db);
   sqlite3_reset(exp->sdt_insert);
-  sqlite3_bind_int64(exp->sdt_insert, SDT_PAT_ROWID, pat_rowid);
-  sqlite3_bind_int(exp->sdt_insert, SDT_VERSION, sdt->i_version);
-  sqlite3_bind_int(exp->sdt_insert, SDT_ORIGINAL_NETWORK_ID, sdt->i_network_id);
+  sqlite3_bind_int64(exp->sdt_insert, SDT_COLUMN_PAT_ROWID, pat_rowid);
+  sqlite3_bind_int(exp->sdt_insert, SDT_COLUMN_VERSION, sdt->i_version);
+  sqlite3_bind_int(exp->sdt_insert, SDT_COLUMN_ORIGINAL_NETWORK_ID,
+                   sdt->i_network_id);
   sqlite3_step(exp->sdt_insert);
   sqlite3_int64 sdt_rowid = sqlite3_last_insert_rowid(exp->db);
   dvbpsi_sdt_service_t *service = sdt->p_first_service;
@@ -723,9 +522,9 @@ void db_export_sdt(db_export *exp, sqlite3_int64 pat_rowid,
 
 sqlite3_int64 db_export_file(db_export *exp, const char *path, off_t size) {
   sqlite3_reset(exp->file_insert);
-  sqlite3_bind_text(exp->file_insert, FILE_NAME, file_name_from_path(path), -1,
-                    SQLITE_TRANSIENT);
-  sqlite3_bind_int64(exp->file_insert, FILE_SIZE, size);
+  sqlite3_bind_text(exp->file_insert, FILE_COLUMN_NAME,
+                    file_name_from_path(path), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int64(exp->file_insert, FILE_COLUMN_SIZE, size);
   sqlite3_step(exp->file_insert);
   return sqlite3_last_insert_rowid(exp->db);
 }
