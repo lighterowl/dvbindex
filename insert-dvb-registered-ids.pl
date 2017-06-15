@@ -24,10 +24,8 @@ use DBI qw(:sql_types);
 use LWP::UserAgent;
 use Readonly;
 
-my $dbh;
-
 sub sheet_to_sqlite {
-  my ( $sheet, $table_name, $data_columns ) = @_;
+  my ( $dbh, $sheet, $table_name, $data_columns ) = @_;
   my @range_columns = ( 'range_start', 'range_end' );
   my @columns = ( @range_columns, @{$data_columns} );
   $dbh->do("DROP TABLE IF EXISTS $table_name");
@@ -63,26 +61,27 @@ sub sheet_to_sqlite {
 }
 
 sub handle_bouquet_id {
-  my $xlsx = shift;
-  sheet_to_sqlite( $xlsx->worksheet('Bouquet ID'),
+  my ( $dbh, $xlsx ) = @_;
+  sheet_to_sqlite( $dbh, $xlsx->worksheet('Bouquet ID'),
     'registered_bouquet_ids', [ 'name', 'operator' ] );
 }
 
 sub handle_ca_system_id {
-  my $xlsx = shift;
-  sheet_to_sqlite( $xlsx->worksheet('CA System ID'),
+  my ( $dbh, $xlsx ) = @_;
+  sheet_to_sqlite( $dbh, $xlsx->worksheet('CA System ID'),
     'registered_ca_system_ids', [ 'description', 'specifier' ] );
 }
 
 sub handle_nid {
-  my $xlsx = shift;
-  sheet_to_sqlite( $xlsx->worksheet('Network ID'),
+  my ( $dbh, $xlsx ) = @_;
+  sheet_to_sqlite( $dbh, $xlsx->worksheet('Network ID'),
     'registered_network_ids', [ 'name', 'operator' ] );
 }
 
 sub handle_onid {
-  my $xlsx = shift;
+  my ( $dbh, $xlsx ) = @_;
   sheet_to_sqlite(
+    $dbh,
     $xlsx->worksheet('Original Network ID'),
     'registered_original_network_ids',
     [ 'name', 'operator' ]
@@ -97,10 +96,10 @@ Readonly::Hash my %ids => (
 );
 
 sub parse_xlsx {
-  my ( $xlsx_raw, $handler ) = @_;
+  my ( $xlsx_raw, $handler, $dbh ) = @_;
   open my $dh, "<", \$xlsx_raw;
   my $xlsx = Spreadsheet::XLSX->new($dh);
-  $handler->($xlsx);
+  $handler->( $dbh, $xlsx );
 }
 
 sub usage {
@@ -121,7 +120,7 @@ END_MSG
 
 usage() unless scalar(@ARGV) == 1;
 
-$dbh = DBI->connect( "dbi:SQLite:dbname=$ARGV[0]", "", "" );
+my $dbh = DBI->connect( "dbi:SQLite:dbname=$ARGV[0]", "", "" );
 
 Readonly::Scalar my $dvbservices_url_base =>
   'http://www.dvbservices.com/identifiers/export/';
@@ -139,7 +138,7 @@ foreach ( keys(%ids) ) {
   }
 
   print STDERR "success.\n";
-  parse_xlsx( $res->content, $ids{$_} );
+  parse_xlsx( $res->content, $ids{$_}, $dbh );
 }
 
 exit 0;
