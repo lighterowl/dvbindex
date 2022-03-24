@@ -492,7 +492,7 @@ static void ts_file_read_ctx_destroy(ts_file_read_ctx *ctx) {
   fclose(ctx->file);
 }
 
-static AVInputFormat *mpegts_format;
+static const AVInputFormat *mpegts_format;
 
 static dvbindex_log_severity ffmpeg_to_dvbindex_severity(int severity) {
   if (severity <= AV_LOG_FATAL) {
@@ -518,9 +518,6 @@ static void ffmpeg_log_callback(void *p, int severity, const char *fmt,
 }
 
 int ffmpeg_init(void) {
-  /* register codecs and formats and other lavf/lavc components*/
-  av_register_all();
-
   av_log_set_callback(ffmpeg_log_callback);
 
   /* this saves an av_find_input_format call when doing open_input */

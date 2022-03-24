@@ -20,6 +20,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <assert.h>
 #include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 #include <sqlite3.h>
 #include <stdbool.h>
 #include <stdio.h>
